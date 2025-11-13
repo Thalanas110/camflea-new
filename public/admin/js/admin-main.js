@@ -168,23 +168,43 @@ const getEnhancedChartOptions = (type, category) => {
 };
 
 async function fetchUserStats() {
-    // Fetch all students with stud_school and group in JS
+    // Fetch all students with stud_year and group in JS
     const { data: allStudents, error: allError } = await supabase
         .from('student')
-        .select('stud_school');
+        .select('stud_year');
 
     if (allError) {
         console.error('Error fetching all students:', allError);
         return {};
     }
 
-    const schoolCounts = {};
+    const yearCounts = {};
     allStudents.forEach(student => {
-        const school = student.stud_school || 'Unknown';
-        schoolCounts[school] = (schoolCounts[school] || 0) + 1;
+        const year = student.stud_year || 'Unknown';
+        yearCounts[year] = (yearCounts[year] || 0) + 1;
     });
 
-    return schoolCounts;
+    return yearCounts;
+}
+
+async function fetchStudentsByProgram() {
+    // Fetch all students with stud_program and group in JS
+    const { data: allStudents, error: allError } = await supabase
+        .from('student')
+        .select('stud_program');
+
+    if (allError) {
+        console.error('Error fetching students by program:', allError);
+        return {};
+    }
+
+    const programCounts = {};
+    allStudents.forEach(student => {
+        const program = student.stud_program || 'Unknown';
+        programCounts[program] = (programCounts[program] || 0) + 1;
+    });
+
+    return programCounts;
 }
 
 async function fetchItemStats() {
@@ -483,11 +503,11 @@ async function fetchTransactionStats() {
     return { transactionsByStatus };
 }
 
-function renderUserStats(schoolCounts) {
-    // Render enhanced doughnut chart for users by school
+function renderUserStats(yearCounts) {
+    // Render enhanced doughnut chart for users by year level
     const ctx = document.getElementById('userStatsPieChart').getContext('2d');
-    const labels = Object.keys(schoolCounts);
-    const data = Object.values(schoolCounts);
+    const labels = Object.keys(yearCounts);
+    const data = Object.values(yearCounts);
 
     if (window.userPieChart) {
         window.userPieChart.destroy();
@@ -502,12 +522,120 @@ function renderUserStats(schoolCounts) {
         return gradient;
     });
 
+    // Sort year levels in proper order (1st, 2nd, 3rd, 4th, Unknown)
+    const yearOrder = ['1st', '2nd', '3rd', '4th', 'Unknown'];
+    const sortedLabels = labels.sort((a, b) => {
+        const indexA = yearOrder.indexOf(a);
+        const indexB = yearOrder.indexOf(b);
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+    });
+    
+    const sortedData = sortedLabels.map(label => yearCounts[label]);
+    const sortedGradients = sortedLabels.map((_, index) => {
+        const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+        const color = colorPalettes.userAnalytics.primary[index % colorPalettes.userAnalytics.primary.length];
+        gradient.addColorStop(0, color);
+        gradient.addColorStop(1, color + '80');
+        return gradient;
+    });
+
+    // Map year levels to display names
+    const displayLabels = sortedLabels.map(label => {
+        return label === 'Unknown' ? 'Unknown Year' : `${label} Year`;
+    });
+
     window.userPieChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: labels,
+            labels: displayLabels,
             datasets: [{
-                label: 'Users by School',
+                label: 'Users by Year Level',
+                data: sortedData,
+                backgroundColor: sortedGradients,
+                borderColor: colorPalettes.userAnalytics.primary.slice(0, sortedLabels.length),
+                borderWidth: 3,
+                hoverBorderWidth: 4,
+                hoverBorderColor: '#fff',
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            ...getEnhancedChartOptions('doughnut', 'userAnalytics'),
+            cutout: '60%',
+            plugins: {
+                ...getEnhancedChartOptions('doughnut', 'userAnalytics').plugins,
+                tooltip: {
+                    ...getEnhancedChartOptions('doughnut', 'userAnalytics').plugins.tooltip,
+                    callbacks: {
+                        title: function(context) {
+                            return 'Year Level Distribution';
+                        },
+                        label: function(context) {
+                            const total = context.chart._metasets[0].total;
+                            const percentage = total ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                            return `${context.label}: ${context.parsed} students (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Update the list view as well
+    const listElement = document.getElementById('userStatsList');
+    if (listElement) {
+        listElement.innerHTML = '';
+        sortedLabels.forEach((label, index) => {
+            const li = document.createElement('li');
+            const displayName = label === 'Unknown' ? 'Unknown Year' : `${label} Year`;
+            const count = sortedData[index];
+            const total = sortedData.reduce((sum, val) => sum + val, 0);
+            const percentage = total ? ((count / total) * 100).toFixed(1) : 0;
+            li.innerHTML = `<strong>${displayName}:</strong> ${count} students (${percentage}%)`;
+            listElement.appendChild(li);
+        });
+    }
+}
+
+function renderProgramStats(programCounts) {
+    // Render enhanced doughnut chart for students by program
+    const ctx = document.getElementById('programStatsPieChart').getContext('2d');
+    const labels = Object.keys(programCounts);
+    const data = Object.values(programCounts);
+
+    if (window.programPieChart) {
+        window.programPieChart.destroy();
+    }
+
+    // Create gradient backgrounds
+    const gradients = labels.map((_, index) => {
+        const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+        const color = colorPalettes.userAnalytics.primary[index % colorPalettes.userAnalytics.primary.length];
+        gradient.addColorStop(0, color);
+        gradient.addColorStop(1, color + '80');
+        return gradient;
+    });
+
+    // Map program codes to full names for better display
+    const programNames = {
+        'CAHS': 'College of Allied Health Sciences',
+        'CBA': 'College of Business Administration', 
+        'CCS': 'College of Computer Studies',
+        'CEAS': 'College of Education, Arts & Sciences',
+        'CHTM': 'College of Hospitality & Tourism Management',
+        'Unknown': 'Unknown Program'
+    };
+
+    const displayLabels = labels.map(label => programNames[label] || label);
+
+    window.programPieChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: displayLabels,
+            datasets: [{
+                label: 'Students by Program',
                 data: data,
                 backgroundColor: gradients,
                 borderColor: colorPalettes.userAnalytics.primary.slice(0, labels.length),
@@ -526,7 +654,7 @@ function renderUserStats(schoolCounts) {
                     ...getEnhancedChartOptions('doughnut', 'userAnalytics').plugins.tooltip,
                     callbacks: {
                         title: function(context) {
-                            return 'School Distribution';
+                            return 'Program Distribution';
                         },
                         label: function(context) {
                             const total = context.chart._metasets[0].total;
@@ -538,6 +666,21 @@ function renderUserStats(schoolCounts) {
             }
         }
     });
+
+    // Update the list view as well
+    const listElement = document.getElementById('programStatsList');
+    if (listElement) {
+        listElement.innerHTML = '';
+        labels.forEach((label, index) => {
+            const li = document.createElement('li');
+            const displayName = programNames[label] || label;
+            const count = data[index];
+            const total = data.reduce((sum, val) => sum + val, 0);
+            const percentage = total ? ((count / total) * 100).toFixed(1) : 0;
+            li.innerHTML = `<strong>${displayName}:</strong> ${count} students (${percentage}%)`;
+            listElement.appendChild(li);
+        });
+    }
 }
 
 function renderItemStats(availableItemsByType, soldItemsByType) {
@@ -1435,6 +1578,10 @@ async function loadStatistics() {
             async () => {
                 const userStats = await fetchUserStats();
                 renderUserStats(userStats);
+            },
+            async () => {
+                const programStats = await fetchStudentsByProgram();
+                renderProgramStats(programStats);
             },
             async () => {
                 const { availableItemsByType, soldItemsByType } = await fetchItemStats();
