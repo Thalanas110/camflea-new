@@ -403,12 +403,20 @@
   window.onload = function() {
     console.log("auth.html: Page loaded. Checking for email query parameter.");
     const emailFromQuery = getQueryParam('email');
+    const actionFromQuery = getQueryParam('action');
     console.log("auth.html: Email from query parameter:", emailFromQuery);
+    console.log("auth.html: Action from query parameter:", actionFromQuery);
 
     if (emailFromQuery && emailFromQuery.trim() !== "") {
       const decodedEmail = decodeURIComponent(emailFromQuery);
       emailInput.value = decodedEmail;
       console.log("auth.html: Email input field set to:", decodedEmail);
+
+      // Update page title and instructions based on action
+      if (actionFromQuery === 'resetpassword') {
+        document.querySelector('h2').textContent = 'Verify Your Email for Password Reset';
+        document.querySelector('p.instructions').textContent = 'To reset your password, please verify your email address. Your email is shown below.';
+      }
     } else {
       showStatus("<strong>Error:</strong> Email address not found in URL. Please return to the signup page and try again.", 'error');
       console.error("auth.html: Email query parameter 'email' is missing or empty.");
@@ -511,36 +519,74 @@
 
     try {
       if (enteredOtp === generatedOtp && generatedOtp !== "") { // Also check generatedOtp is not empty
-          // OTP verified, now insert student data into database
-          const signupData = JSON.parse(localStorage.getItem('signupData'));
-          if (signupData) {
-              const { data: student, error: studentError } = await supabaseClient
-                  .from('student')
-                  .insert({
-                      user_id: signupData.userId,
-                      stud_fname: signupData.firstName,
-                      stud_lname: signupData.lastName,
-                      stud_email: signupData.email,
-                      stud_phone: signupData.phoneNumber,
-                      stud_school: signupData.school,
-                      is_role: 0,
+          const actionFromQuery = getQueryParam('action');
+
+          if (actionFromQuery === 'resetpassword') {
+              // Handle password reset
+              const resetEmail = localStorage.getItem('resetEmail');
+              const resetPassword = localStorage.getItem('resetPassword');
+
+              if (resetEmail && resetPassword) {
+                  // Call server endpoint to update auth.users password
+                  const response = await fetch('/update-password', {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ email: resetEmail, password: resetPassword }),
                   });
 
-              if (studentError) {
-                  console.error('Error inserting student details:', studentError);
-                  showStatus('Verification successful, but account creation failed. Please contact support.', 'error');
-                  return;
+                  const data = await response.json();
+                  if (!data.success) {
+                      console.error('Failed to update password:', data.message);
+                      showStatus('Verification successful, but password reset failed. Please contact support.', 'error');
+                      return;
+                  }
+
+                  // Clear localStorage
+                  localStorage.removeItem('resetEmail');
+                  localStorage.removeItem('resetPassword');
+
+                  const successMsg = "Password reset successful! Redirecting to login...";
+                  showStatus(`<strong>Success:</strong> ${successMsg}`, 'success');
+                  setTimeout(() => {
+                      window.location.href = "Login_page.html";
+                  }, 2000);
+              } else {
+                  showStatus('Reset data not found. Please try again.', 'error');
+              }
+          } else {
+              // Default signup flow
+              const signupData = JSON.parse(localStorage.getItem('signupData'));
+              if (signupData) {
+                  const { data: student, error: studentError } = await supabaseClient
+                      .from('student')
+                      .insert({
+                          user_id: signupData.userId,
+                          stud_fname: signupData.firstName,
+                          stud_lname: signupData.lastName,
+                          stud_email: signupData.email,
+                          stud_phone: signupData.phoneNumber,
+                          stud_school: signupData.school,
+                          is_role: 0,
+                      });
+
+                  if (studentError) {
+                      console.error('Error inserting student details:', studentError);
+                      showStatus('Verification successful, but account creation failed. Please contact support.', 'error');
+                      return;
+                  }
+
+                  // Clear localStorage after successful insertion
+                  localStorage.removeItem('signupData');
               }
 
-              // Clear localStorage after successful insertion
-              localStorage.removeItem('signupData');
+              const successMsg = "Verification successful! Account created. Redirecting to login...";
+              showStatus(`<strong>Success:</strong> ${successMsg}`, 'success');
+              setTimeout(() => {
+                  window.location.href = "Login_page.html";
+              }, 2000);
           }
-
-          const successMsg = "Verification successful! Account created. Redirecting to login...";
-          showStatus(`<strong>Success:</strong> ${successMsg}`, 'success');
-          setTimeout(() => {
-              window.location.href = "Login_page.html";
-          }, 2000);
       } else {
           throw { message: "The OTP entered is invalid or has expired." };
       }

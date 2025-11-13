@@ -11,7 +11,18 @@ class ModalSystem {
 
     init() {
         if (this.isInitialized) return;
-        
+
+        // Check if DOM is ready
+        if (!document.head || !document.body) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => this.init());
+            } else {
+                // DOM is ready but head/body not available, retry later
+                setTimeout(() => this.init(), 10);
+            }
+            return;
+        }
+
         // Create modal HTML structure
         const modalHTML = `
             <div id="universal-modal" class="modal-overlay" style="display: none;">
@@ -191,7 +202,7 @@ class ModalSystem {
                         width: 95%;
                         margin: 20px;
                     }
-                    
+
                     .modal-header,
                     .modal-body,
                     .modal-footer {
@@ -204,7 +215,7 @@ class ModalSystem {
 
         // Add CSS to head
         document.head.insertAdjacentHTML('beforeend', modalCSS);
-        
+
         // Add modal HTML to body
         document.body.insertAdjacentHTML('beforeend', modalHTML);
 

@@ -34,7 +34,7 @@ class LoadingScreen {
             <div id="camflea-loading-screen" class="loading-screen ${this.options.gradient}">
                 <div class="loading-container">
                     <div class="loading-logo">
-                        <img src="Homepage_images/camflea-logo.png" alt="CamFlea" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=&quot;font-size:40px;color:#069210;font-weight:bold;&quot;>CF</span>'">
+                        <img src="Homepage_images/LOGO_WHITE.png" alt="CamFlea" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=&quot;font-size:40px;color:#069210;font-weight:bold;&quot;>CF</span>'">
                     </div>
                     <h1 class="loading-title">CamFlea</h1>
                     <p class="loading-subtitle">Student Marketplace</p>

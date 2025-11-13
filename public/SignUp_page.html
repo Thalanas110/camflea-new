@@ -13,7 +13,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
         body {
-            background: linear-gradient(to right, #e0eafc, #cfdef3); /* Subtle blue gradient */
+            background: linear-gradient(to right, #e8f5e8, #d4f3d4); /* Subtle green gradient */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -44,9 +44,6 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            position: absolute;
-            top: 20px;
-            left: 20px;
             padding: 0;
         }
 
@@ -215,10 +212,12 @@
 </head>
 <body>
     <div class="container">
-        <button id="back-button" title="Go Back">
-            <img src="Homepage_images/return-icon.png" alt="Return Icon" style="width: 16px; height: 16px; filter: invert(100%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(100%) contrast(100%);">
-        </button>
         <div class="signup-box">
+            <div style="display: flex; justify-content: flex-start; margin-bottom: 10px;">
+                <button id="back-button" title="Go Back" style="width: 40px; height: 40px;">
+                    <img src="Homepage_images/return-icon.png" alt="Return Icon" style="width: 16px; height: 16px; filter: invert(100%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(100%) contrast(100%);">
+                </button>
+            </div>
             <img src="Login_images/LOGO.png" alt="CamFlea Logo" class="logo" />
             <h2>Create Your Account</h2>
             <form id="signupForm" onsubmit="handleSignup(event)">
@@ -244,7 +243,48 @@
                     as it cannot be changed after registration.</small
                 >
 
+                <label>Birthday</label>
+                <input type="date" id="birthday" required />
 
+                <label>Year Level</label>
+                <select id="yearLevel" required>
+                    <option value="">Select Year Level</option>
+                    <option value="1st">1st</option>
+                    <option value="2nd">2nd</option>
+                    <option value="3rd">3rd</option>
+                    <option value="4th">4th</option>
+                </select>
+
+                <label>Course</label>
+                <select id="course" required>
+                    <option value="">Select Course</option>
+                    <option value="Bachelor of Science in Nursing">Bachelor of Science in Nursing</option>
+                    <option value="Bachelor of Science in Midwifery">Bachelor of Science in Midwifery</option>
+                    <option value="Bachelor of Science in Accountancy">Bachelor of Science in Accountancy</option>
+                    <option value="Bachelor of Science in Business Administration Major in Financial Management">Bachelor of Science in Business Administration Major in Financial Management</option>
+                    <option value="Bachelor of Science in Business Administration Major in Human Resource Management">Bachelor of Science in Business Administration Major in Human Resource Management</option>
+                    <option value="Bachelor of Science in Business Administration Major in Marketing Management">Bachelor of Science in Business Administration Major in Marketing Management</option>
+                    <option value="Bachelor of Science in Customs Administration">Bachelor of Science in Customs Administration</option>
+                    <option value="Bachelor of Science in Computer Science">Bachelor of Science in Computer Science</option>
+                    <option value="Bachelor of Science in Entertainment and Multimedia Computing">Bachelor of Science in Entertainment and Multimedia Computing</option>
+                    <option value="Bachelor of Science in Information Technology">Bachelor of Science in Information Technology</option>
+                    <option value="Bachelor of Arts in Communication">Bachelor of Arts in Communication</option>
+                    <option value="Bachelor of Early Childhood Education">Bachelor of Early Childhood Education</option>
+                    <option value="Bachelor of Culture and Arts Education">Bachelor of Culture and Arts Education</option>
+                    <option value="Bachelor of Physical Education">Bachelor of Physical Education</option>
+                    <option value="Bachelor of Elementary Education (General Education)">Bachelor of Elementary Education (General Education)</option>
+                    <option value="Bachelor of Secondary Education major in English">Bachelor of Secondary Education major in English</option>
+                    <option value="Bachelor of Secondary Education major in Filipino">Bachelor of Secondary Education major in Filipino</option>
+                    <option value="Bachelor of Secondary Education major in Mathematics">Bachelor of Secondary Education major in Mathematics</option>
+                    <option value="Bachelor of Secondary Education major in Social Studies">Bachelor of Secondary Education major in Social Studies</option>
+                    <option value="Bachelor of Secondary Education major in Sciences">Bachelor of Secondary Education major in Sciences</option>
+                    <option value="Teacher Certificate Program (TCP)">Teacher Certificate Program (TCP)</option>
+                    <option value="Bachelor of Science in Hospitality Management">Bachelor of Science in Hospitality Management</option>
+                    <option value="Bachelor of Science in Tourism Management">Bachelor of Science in Tourism Management</option>
+                </select>
+
+                <label>Program</label>
+                <input type="text" id="program" readonly placeholder="Program will be set based on course" />
 
                 <div class="email-password-container">
                     <div style="flex: 1.8;">
@@ -424,6 +464,12 @@
                 return;
             }
 
+            // Get additional fields
+            const birthday = document.getElementById('birthday').value;
+            const yearLevel = document.getElementById('yearLevel').value;
+            const course = document.getElementById('course').value;
+            const program = document.getElementById('program').value;
+
             // Store signup data in localStorage for later insertion after verification
             const signupData = {
                 userId: user.id,
@@ -431,11 +477,21 @@
                 lastName,
                 email,
                 phoneNumber,
-                school: 'Gordon College'
+                school: 'Gordon College',
+                birthday,
+                yearLevel,
+                course,
+                program
             };
             localStorage.setItem('signupData', JSON.stringify(signupData));
 
             showMessage('Signup successful! Redirecting to email verification...', 'success');
+            
+            // Show loading screen before redirect
+            if (typeof window.showLoading === 'function') {
+                window.showLoading("Preparing verification...");
+            }
+            
             setTimeout(() => {
                 // Redirect to auth.html (the verification page) with the email
                 window.location.href = `auth.html?email=${encodeURIComponent(email)}`;
@@ -468,6 +524,25 @@
                 }
             });
         }
+
+        // Add event listener for course selection to set program
+        document.getElementById('course').addEventListener('change', function () {
+            const course = this.value;
+            const programField = document.getElementById('program');
+            let program = '';
+            if (course.includes('Nursing') || course.includes('Midwifery')) {
+                program = 'CAHS';
+            } else if (course.includes('Accountancy') || course.includes('Business Administration') || course.includes('Customs Administration')) {
+                program = 'CBA';
+            } else if (course.includes('Computer Science') || course.includes('Entertainment and Multimedia Computing') || course.includes('Information Technology')) {
+                program = 'CCS';
+            } else if (course.includes('Communication') || course.includes('Education') || course.includes('Physical Education') || course.includes('Teacher Certificate Program')) {
+                program = 'CEAS';
+            } else if (course.includes('Hospitality Management') || course.includes('Tourism Management')) {
+                program = 'CHTM';
+            }
+            programField.value = program;
+        });
 
         // Add event listener for back button
         document.getElementById('back-button').addEventListener('click', () => {

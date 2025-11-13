@@ -157,14 +157,16 @@
         <!-- Error message box -->
         <div class="error-message" id="error-message"></div>
 
-        <input type="email" id="email" placeholder="School Email">
-        <div class="input-container">
-            <input type="password" id="password" placeholder="Password">
-            <span class="toggle-password" onclick="togglePassword()">
-                <img src="Login_images/eye-icon.png" alt="Toggle Password">
-            </span>
-        </div>
-        <button onclick="validateLogin()">Log In</button>
+        <form onsubmit="event.preventDefault(); validateLogin();">
+            <input type="email" id="email" placeholder="School Email">
+            <div class="input-container">
+                <input type="password" id="password" placeholder="Password" autocomplete="current-password">
+                <span class="toggle-password" onclick="togglePassword()">
+                    <img src="Login_images/eye-icon.png" alt="Toggle Password">
+                </span>
+            </div>
+            <button type="submit">Log In</button>
+        </form>
         <div class="links">
             <a href="forgot_password.html">Forgot Password?</a>
             <a href="SignUp_page.html">Don't have an account?</a> 
@@ -232,16 +234,38 @@
         return;
     }
 
-    // Fetch user from student table based on email and password
+    // Authenticate using Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
+    });
+
+    if (authError) {
+        // Check if error is due to invalid credentials
+        if (authError.status === 400 || authError.status === 401) {
+            errorMessage.innerHTML = "Email or password is incorrect.";
+        } else {
+            errorMessage.innerHTML = "An error occurred during authentication.";
+        }
+        errorMessage.style.display = "block";
+        return;
+    }
+
+    if (!authData.user) {
+        errorMessage.innerHTML = "Email or password is incorrect.";
+        errorMessage.style.display = "block";
+        return;
+    }
+
+    // Fetch user details from student table using user_id
     const { data: user, error: userError } = await supabase
         .from('student')
         .select('*')
-        .eq('stud_email', email)
-        .eq('stud_password', password)
+        .eq('user_id', authData.user.id)  // Here we use authData.user.id to link to the student table
         .single();
 
     if (userError || !user) {
-        errorMessage.innerHTML = "Email or password is incorrect.";
+        errorMessage.innerHTML = "User profile not found.";
         errorMessage.style.display = "block";
         return;
     }
@@ -267,7 +291,7 @@
             const { error: updateError } = await supabase
                 .from('student')
                 .update({ is_role: 0, restriction_start_date: null }) // Revert to normal role (assuming 0 is normal)
-                .eq('stud_email', email);
+                .eq('user_id', authData.user.id);
 
             if (updateError) {
                 console.error('Error lifting restriction:', updateError);
@@ -288,31 +312,31 @@
         sessionStorage.setItem("stud_id", user.stud_id); // Optional session data
     }
 
-    localStorage.setItem("senderUid", user.user_id); // Use user_id from student table
+    localStorage.setItem("senderUid", authData.user.id); // Use Supabase Auth's user ID for senderUid
     localStorage.setItem("stud_fname", user.stud_fname);
     localStorage.setItem("stud_lname", user.stud_lname);
     localStorage.setItem("stud_email", user.stud_email);
     localStorage.setItem("userSchool", user.stud_school);
     localStorage.setItem("isLoggedIn", "true");
 
-    // Show success message
-    errorMessage.classList.add("success");
-    errorMessage.innerHTML = "Login successful! Redirecting to homepage...";
-    errorMessage.style.display = "block";
+    // Store access token in localStorage for authenticated requests
+    if (authData.session && authData.session.access_token) {
+        localStorage.setItem("access_token", authData.session.access_token);
+        console.log("Stored access_token in localStorage");
+    } else {
+        console.warn("No access token found in session");
+    }
 
-    console.log("Stored senderUid:", user.user_id);
-    console.log("Current stud_id in localStorage:", localStorage.getItem("stud_id"));
+    // Show loading screen before redirect
+    if (typeof window.showLoading === 'function') {
+        window.showLoading("Loading your marketplace...");
+    }
 
-    // Redirect based on is_role after short delay
+    // Small delay to ensure loading screen appears before redirect
     setTimeout(() => {
-        if (user.is_role === 1) {
-            window.location.href = "admin.html";
-        } else {
-            window.location.href = "index.html";
-        }
-    }, 1500); // Adjust delay if needed
+        window.location.href = "main.html";
+    }, 300);
 };
-
 
     </script>
     <script src="loading-screen.js"></script>

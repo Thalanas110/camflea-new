@@ -720,6 +720,50 @@ app.post('/complete-transaction', authenticateToken, async (req, res) => {
     }
 });
 
+// API endpoint to update user password in auth.users using service role
+app.post('/update-password', async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ success: false, message: 'Email and password required' });
+    }
+
+    try {
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!serviceRoleKey) {
+            console.error('Service role key not configured');
+            return res.status(500).json({ success: false, message: 'Service role key not configured' });
+        }
+        const serviceSupabaseClient = createClient(supabaseUrl, serviceRoleKey);
+
+        // Get user_id from student table
+        const { data: student, error: studentError } = await serviceSupabaseClient
+            .from('student')
+            .select('user_id')
+            .eq('stud_email', email)
+            .single();
+
+        if (studentError || !student) {
+            console.error('User not found in student table:', studentError);
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Update auth user password using admin API
+        const { error: updateError } = await serviceSupabaseClient.auth.admin.updateUserById(student.user_id, {
+            password: password
+        });
+
+        if (updateError) {
+            console.error('Error updating auth user password:', updateError);
+            return res.status(400).json({ success: false, message: updateError.message });
+        }
+
+        res.json({ success: true, message: 'Password updated successfully' });
+    } catch (err) {
+        console.error('Server error updating password:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 // Start the server
 if (process.env.NODE_ENV !== 'production') {
     app.listen(port, () => {
