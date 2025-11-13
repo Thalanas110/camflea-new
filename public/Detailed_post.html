@@ -20,13 +20,15 @@
             color: #2c3e50;
             line-height: 1.6;
             min-height: 100vh;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
 
         .details-layout {
             display: flex;
             gap: 30px;
             max-width: 1400px;
-            margin: 40px auto 0 auto;
+            margin: 40px auto 120px auto;
             background: #fff;
             border-radius: 20px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.12);
@@ -34,8 +36,9 @@
             padding: 40px;
             align-items: flex-start;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            min-height: calc(100vh - 200px);
         }
 
         .details-layout::before {
@@ -53,28 +56,36 @@
             .details-layout {
                 flex-direction: column;
                 gap: 24px;
-                margin: 20px;
+                margin: 20px 20px 200px 20px;
                 padding: 24px;
                 max-width: none;
+                min-height: auto;
             }
             
             .details-left {
                 width: 100%;
                 min-width: auto;
+                order: 1;
             }
             
             .details-right {
                 width: 100%;
                 min-width: auto;
-                padding-right: 0;
+                padding: 25px 20px 60px 20px;
+                order: 2;
             }
         }
         
         @media (max-width: 768px) {
             .details-layout {
-                margin: 10px;
+                margin: 10px 10px 180px 10px;
                 padding: 16px;
                 border-radius: 8px;
+                min-height: auto;
+            }
+            
+            .details-right {
+                padding: 20px 15px 80px 15px;
             }
             
             .image-gallery img,
@@ -90,6 +101,17 @@
                 max-width: 280px;
                 height: auto;
                 aspect-ratio: 4/3;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .details-layout {
+                margin: 5px 5px 160px 5px;
+                padding: 12px;
+            }
+            
+            .details-right {
+                padding: 15px 10px 80px 10px;
             }
         }
         .details-left {
@@ -150,11 +172,12 @@
             min-width: 400px;
             background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
             border-radius: 16px;
-            padding: 35px 30px;
+            padding: 35px 30px 50px 30px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.06);
             border: 2px solid transparent;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
+            min-height: 100%;
         }
 
         .details-right::before {
@@ -261,7 +284,7 @@
         .price-box {
             background: linear-gradient(135deg, #049516, #37d84a);
             border-radius: 16px;
-            padding: 25px 30px;
+            padding: 30px 35px;
             font-size: 1.6rem;
             color: #ffffff;
             margin: 20px 0 25px 0;
@@ -269,10 +292,11 @@
             align-items: center;
             justify-content: space-between;
             width: 100%;
-            max-width: 400px;
+            max-width: 500px;
+            min-height: 80px;
             font-weight: 700;
-            flex-wrap: wrap;
-            gap: 10px;
+            flex-wrap: nowrap;
+            gap: 20px;
             box-shadow: 0 6px 20px rgba(4, 149, 22, 0.25);
             border: 2px solid rgba(255, 255, 255, 0.1);
             position: relative;
@@ -291,14 +315,16 @@
         }
         
         .price-box .posted-time {
-            font-size: 1rem;
-            color: rgba(255, 255, 255, 0.9);
-            font-weight: 500;
+            font-size: 0.95rem;
+            color: #2c3e50;
+            font-weight: 600;
             white-space: nowrap;
-            background: rgba(255, 255, 255, 0.15);
-            padding: 5px 12px;
-            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 15px;
+            border-radius: 25px;
             backdrop-filter: blur(10px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
         
         /* Responsive adjustments for price-box */
@@ -307,8 +333,24 @@
                 flex-direction: column;
                 align-items: flex-start;
                 max-width: none;
-                font-size: 1.25rem;
-                gap: 4px;
+                font-size: 1.4rem;
+                gap: 15px;
+                padding: 25px 30px;
+                min-height: 100px;
+            }
+            
+            .price-box .posted-time {
+                font-size: 0.9rem;
+                align-self: flex-end;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .price-box {
+                padding: 20px 25px;
+                font-size: 1.2rem;
+                min-height: 90px;
+                gap: 12px;
             }
             
             .price-box .posted-time {
@@ -401,12 +443,14 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .action-buttons {
-            display: flex;
+            display: flex !important;
             gap: 20px;
-            margin-top: 30px;
+            margin: 30px 0 40px 0;
             width: 100%;
             max-width: 550px;
             flex-wrap: wrap;
+            visibility: visible !important;
+            opacity: 1 !important;
         }
         
         .action-buttons button {
@@ -462,28 +506,41 @@
         }
         
         /* Responsive adjustments for action-buttons */
+        @media (max-width: 1024px) {
+            .action-buttons {
+                max-width: none;
+                width: 100%;
+            }
+        }
+        
         @media (max-width: 768px) {
             .action-buttons {
                 gap: 12px;
                 max-width: none;
+                width: 100%;
+                margin: 25px 0 50px 0;
             }
             
             .action-buttons button {
                 font-size: 0.95rem;
-                padding: 10px 8px;
+                padding: 12px 15px;
+                min-width: 120px;
             }
         }
         
         @media (max-width: 480px) {
             .action-buttons {
                 flex-direction: column;
-                gap: 8px;
+                gap: 12px;
+                width: 100%;
+                margin: 20px 0 60px 0;
             }
             
             .action-buttons button {
                 width: 100%;
-                padding: 12px;
+                padding: 15px;
                 min-width: auto;
+                font-size: 1rem;
             }
         }
         .back-button {
