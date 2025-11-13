@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Transaction Monitoring - CamFlea Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <!-- Admin Authentication Check - Must load before page content -->
+    <script src="js/admin-auth.js"></script>
+    <link rel="stylesheet" href="css/transaction-monitoring.css" />
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .debug-log {
+            margin-bottom: 5px;
+            padding: 3px 0;
+        }
+        
+        .debug-log.info { color: #0066cc; }
+        .debug-log.success { color: #28a745; }
+        .debug-log.warning { color: #ffc107; }
+        .debug-log.error { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <header>
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+            ☰
+        </button>
+        <div class="header-content">
+            <h1>Transaction Monitoring</h1>
+        </div>
+    </header>
+    
+    <div class="sidenav-overlay" id="sidenavOverlay"></div>
+    
+    <div class="layout-container">
+        <aside class="sidenav" id="sidenav">
+            <div class="sidenav-header">Navigation</div>
+            <nav class="admin-nav">
+                <a href="admin.html" class="nav-button">
+                    Admin Dashboard
+                </a>
+                <a href="user_management.html" class="nav-button">
+                    User Management
+                </a>
+                <a href="admin_post_item_management.html" class="nav-button">
+                    Post & Item Management
+                </a>
+                <a href="transaction_monitoring.html" class="nav-button active">
+                    Transaction Monitoring
+                </a>
+                <a href="reports_violations.html" class="nav-button">
+                    Reports & Violations Center
+                </a>
+                <button id="logoutBtn" class="nav-button logout-button">
+                    Log Out
+                </button>
+            </nav>
+        </aside>
+        
+        <main>
+    <div class="content">
+        <!-- Debug Panel -->
+        <div id="debugPanel" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px; margin-bottom: 15px; display: none;">
+            <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 10px;">
+                <h4 style="margin: 0; color: #495057;">🐛 Debug Information</h4>
+                <button id="clearDebugBtn" style="background: #6c757d; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Clear</button>
+            </div>
+            <div id="debugInfo" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; background: white; padding: 10px; border-radius: 3px; white-space: pre-wrap;"></div>
+        </div>
+
+        <!-- Error Display -->
+        <div id="errorDisplay" style="background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; border-radius: 5px; padding: 10px; margin-bottom: 15px; display: none;">
+            <strong>⚠️ Error:</strong> <span id="errorMessage"></span>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" style="text-align: center; padding: 20px; display: none;">
+            <div style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #049516; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <span style="margin-left: 10px;">Loading transactions...</span>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center;">
+            <input type="text" id="searchBar" placeholder="Search by Transaction ID, Buyer, Seller, or Product Name" style="flex: 1; min-width: 250px;" />
+            <button id="debugToggleBtn" style="padding: 10px 15px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
+                🐛 Debug
+            </button>
+            <button id="refreshBtn" style="padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
+                🔄 Refresh
+            </button>
+            <button id="debugDbBtn" style="padding: 10px 15px; background: #17a2b8; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
+                🔍 Check DB
+            </button>
+            <button id="exportPdfBtn" style="padding: 10px 20px; background: linear-gradient(135deg, #049516 0%, #037a12 100%); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; transition: transform 0.2s;">
+                📄 Export to PDF
+            </button>
+        </div>
+        <div class="table-wrapper">
+            <table id="transactionsTable">
+                <thead>
+                    <tr>
+                        <th>Transaction ID</th>
+                        <th>Buyer Name</th>
+                        <th>Seller Name</th>
+                        <th>Product Name</th>
+                        <th>Status</th>
+                        <th>Created At</th>
+                        <th>Updated At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Transactions will be populated here -->
+                </tbody>
+            </table>
+        </div>
+        <div id="noResults" style="display:none;">No transactions found.</div>
+    </div>
+        </main>
+    </div>
+
+    <script>
+        // Debug functionality
+        let debugMode = false;
+        const debugInfo = document.getElementById('debugInfo');
+        const debugPanel = document.getElementById('debugPanel');
+        const debugToggleBtn = document.getElementById('debugToggleBtn');
+        const clearDebugBtn = document.getElementById('clearDebugBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const debugDbBtn = document.getElementById('debugDbBtn');
+        const errorDisplay = document.getElementById('errorDisplay');
+        const errorMessage = document.getElementById('errorMessage');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        function addDebugLog(message, type = 'info') {
+            if (!debugMode) return;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `debug-log ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            debugInfo.appendChild(logEntry);
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+            
+            // Also log to console for browser dev tools
+            console[type === 'error' ? 'error' : type === 'warning' ? 'warn' : 'log'](`[Transaction Monitor] ${message}`);
+        }
+
+        function showError(error) {
+            errorMessage.textContent = error;
+            errorDisplay.style.display = 'block';
+            addDebugLog(`ERROR: ${error}`, 'error');
+            setTimeout(() => {
+                errorDisplay.style.display = 'none';
+            }, 10000); // Hide after 10 seconds
+        }
+
+        function showLoading(show = true) {
+            loadingIndicator.style.display = show ? 'block' : 'none';
+            if (show) {
+                addDebugLog('Loading transactions...', 'info');
+            }
+        }
+
+        function clearError() {
+            errorDisplay.style.display = 'none';
+        }
+
+        // Debug toggle functionality
+        debugToggleBtn.addEventListener('click', () => {
+            debugMode = !debugMode;
+            debugPanel.style.display = debugMode ? 'block' : 'none';
+            debugToggleBtn.textContent = debugMode ? '🐛 Hide Debug' : '🐛 Debug';
+            
+            if (debugMode) {
+                addDebugLog('Debug mode enabled', 'success');
+                addDebugLog(`Current URL: ${window.location.href}`, 'info');
+                addDebugLog(`User Agent: ${navigator.userAgent}`, 'info');
+                addDebugLog(`Screen Resolution: ${screen.width}x${screen.height}`, 'info');
+            }
+        });
+
+        // Clear debug log
+        clearDebugBtn.addEventListener('click', () => {
+            debugInfo.innerHTML = '';
+            clearError();
+            addDebugLog('Debug log cleared', 'info');
+        });
+
+        // Refresh functionality
+        refreshBtn.addEventListener('click', () => {
+            addDebugLog('Manual refresh triggered', 'info');
+            clearError();
+            if (typeof fetchTransactions === 'function') {
+                fetchTransactions();
+            } else {
+                addDebugLog('fetchTransactions function not available yet', 'warning');
+            }
+        });
+
+        // Debug database functionality
+        debugDbBtn.addEventListener('click', async () => {
+            addDebugLog('Checking database tables...', 'info');
+            clearError();
+            
+            try {
+                // Get session token
+                const { data: sessionData } = await supabase.auth.getSession();
+                const token = sessionData.session?.access_token;
+                
+                if (!token) {
+                    addDebugLog('No access token for debug check', 'error');
+                    return;
+                }
+                
+                const response = await fetch('/api/admin/debug/tables', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Debug API failed: ${response.status}`);
+                }
+                
+                const debugData = await response.json();
+                
+                if (debugData.success) {
+                    addDebugLog('=== DATABASE TABLE INFORMATION ===', 'info');
+                    Object.entries(debugData.tableInfo).forEach(([tableName, info]) => {
+                        addDebugLog(`📊 ${tableName.toUpperCase()}: ${info.count} records`, 'info');
+                        if (info.sample && info.sample.length > 0) {
+                            addDebugLog(`   Sample: ${JSON.stringify(info.sample[0], null, 2)}`, 'info');
+                        }
+                    });
+                } else {
+                    addDebugLog(`Debug check failed: ${debugData.message}`, 'error');
+                }
+            } catch (error) {
+                addDebugLog(`Error checking database: ${error.message}`, 'error');
+            }
+        });
+
+        // Override console methods to capture all logs when debug mode is on
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            if (debugMode) {
+                addDebugLog(args.join(' '), 'info');
+            }
+        };
+
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            if (debugMode) {
+                addDebugLog(args.join(' '), 'error');
+            }
+        };
+
+        console.warn = function(...args) {
+            originalConsoleWarn.apply(console, args);
+            if (debugMode) {
+                addDebugLog(args.join(' '), 'warning');
+            }
+        };
+
+        // Window error handler
+        window.addEventListener('error', (event) => {
+            const errorMsg = `Uncaught error: ${event.error?.message || event.message}`;
+            showError(errorMsg);
+            addDebugLog(errorMsg, 'error');
+        });
+
+        // Promise rejection handler
+        window.addEventListener('unhandledrejection', (event) => {
+            const errorMsg = `Unhandled promise rejection: ${event.reason}`;
+            showError(errorMsg);
+            addDebugLog(errorMsg, 'error');
+        });
+    </script>
+    <script src="js/transaction-monitoring.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        // Integration with transaction-monitoring.js
+        document.addEventListener('DOMContentLoaded', function() {
+            // Override the original fetchTransactions function to add debugging
+            if (typeof window.fetchTransactions === 'undefined') {
+                // Store reference to original function when it becomes available
+                const originalFetchTransactions = window.fetchTransactions;
+                
+                // Wait for the external script to load
+                const checkForFunctions = setInterval(() => {
+                    if (typeof window.fetchTransactions === 'function') {
+                        clearInterval(checkForFunctions);
+                        addDebugLog('transaction-monitoring.js loaded successfully', 'success');
+                        
+                        // Wrap the original function with debugging
+                        const originalFetch = window.fetchTransactions;
+                        window.fetchTransactions = async function() {
+                            try {
+                                showLoading(true);
+                                addDebugLog('Starting to fetch transactions...', 'info');
+                                
+                                const result = await originalFetch.apply(this, arguments);
+                                
+                                showLoading(false);
+                                addDebugLog('Transactions fetched successfully', 'success');
+                                
+                                return result;
+                            } catch (error) {
+                                showLoading(false);
+                                addDebugLog(`Error in fetchTransactions: ${error.message}`, 'error');
+                                showError(`Failed to load transactions: ${error.message}`);
+                                throw error;
+                            }
+                        };
+                    }
+                }, 100);
+                
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                    clearInterval(checkForFunctions);
+                    if (typeof window.fetchTransactions === 'undefined') {
+                        addDebugLog('transaction-monitoring.js failed to load within 5 seconds', 'error');
+                        showError('Failed to load transaction monitoring script');
+                    }
+                }, 5000);
+            }
+            
+            // Monitor Supabase initialization
+            const checkSupabase = setInterval(() => {
+                if (window.supabase && typeof window.initializeSupabase === 'function') {
+                    clearInterval(checkSupabase);
+                    addDebugLog('Supabase client available', 'success');
+                    
+                    // Wrap initializeSupabase with debugging
+                    const originalInit = window.initializeSupabase;
+                    window.initializeSupabase = async function() {
+                        try {
+                            addDebugLog('Initializing Supabase client...', 'info');
+                            const result = await originalInit.apply(this, arguments);
+                            addDebugLog('Supabase initialized successfully', 'success');
+                            return result;
+                        } catch (error) {
+                            addDebugLog(`Supabase initialization failed: ${error.message}`, 'error');
+                            showError(`Database connection failed: ${error.message}`);
+                            throw error;
+                        }
+                    };
+                }
+            }, 100);
+            
+            setTimeout(() => clearInterval(checkSupabase), 5000);
+            
+            // Add debugging info on page load
+            addDebugLog('Transaction Monitoring page loaded', 'info');
+            addDebugLog(`Timestamp: ${new Date().toISOString()}`, 'info');
+            
+            // Monitor network requests
+            const originalFetch = window.fetch;
+            window.fetch = async function(url, options = {}) {
+                try {
+                    addDebugLog(`Making request to: ${url}`, 'info');
+                    const response = await originalFetch(url, options);
+                    
+                    if (!response.ok) {
+                        addDebugLog(`Request failed: ${response.status} ${response.statusText}`, 'error');
+                    } else {
+                        addDebugLog(`Request successful: ${response.status}`, 'success');
+                    }
+                    
+                    return response;
+                } catch (error) {
+                    addDebugLog(`Network error: ${error.message}`, 'error');
+                    throw error;
+                }
+            };
+        });
+    </script>
+</body>
+</html>

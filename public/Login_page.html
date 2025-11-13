@@ -157,14 +157,16 @@
         <!-- Error message box -->
         <div class="error-message" id="error-message"></div>
 
-        <input type="email" id="email" placeholder="School Email">
-        <div class="input-container">
-            <input type="password" id="password" placeholder="Password">
-            <span class="toggle-password" onclick="togglePassword()">
-                <img src="Login_images/eye-icon.png" alt="Toggle Password">
-            </span>
-        </div>
-        <button onclick="validateLogin()">Log In</button>
+        <form onsubmit="event.preventDefault(); validateLogin();">
+            <input type="email" id="email" placeholder="School Email">
+            <div class="input-container">
+                <input type="password" id="password" placeholder="Password" autocomplete="current-password">
+                <span class="toggle-password" onclick="togglePassword()">
+                    <img src="Login_images/eye-icon.png" alt="Toggle Password">
+                </span>
+            </div>
+            <button type="submit">Log In</button>
+        </form>
         <div class="links">
             <a href="forgot_password.html">Forgot Password?</a>
             <a href="SignUp_page.html">Don't have an account?</a> 
@@ -232,10 +234,10 @@
         return;
     }
 
-    // Use Supabase Auth to sign in
+    // Authenticate using Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password
+        email: email,
+        password: password
     });
 
     if (authError) {
@@ -255,27 +257,22 @@
         return;
     }
 
-    // After successful login with Supabase Auth, fetch the additional user details from your `student` table
+    // Fetch user details from student table using user_id
     const { data: user, error: userError } = await supabase
         .from('student')
         .select('*')
         .eq('user_id', authData.user.id)  // Here we use authData.user.id to link to the student table
         .single();
 
-    if (userError) {
-        errorMessage.innerHTML = "An error occurred while fetching user data.";
-        errorMessage.style.display = "block";
-        return;
-    }
-
-    if (!user) {
-        errorMessage.innerHTML = "User not found in the student table.";
+    if (userError || !user) {
+        errorMessage.innerHTML = "User profile not found.";
         errorMessage.style.display = "block";
         return;
     }
 
     // Check user role for ban/restriction
-    if (user.is_role === 2) { // Banned
+
+    else if (user.is_role === 2) { // Banned
         errorMessage.innerHTML = "You are currently banned from using the app. Please contact support.";
         errorMessage.style.display = "block";
         return; // Prevent login
@@ -328,19 +325,16 @@
         localStorage.setItem("access_token", authData.session.access_token);
         console.log("Stored access_token in localStorage");
     } else {
-        console.warn("No access_token found in authData.session");
+        console.warn("No access token found in session");
     }
 
-    // Show success message
-    errorMessage.classList.add("success");
-    errorMessage.innerHTML = "Login successful! Redirecting to homepage...";
-    errorMessage.style.display = "block";
+    // Show loading screen before redirect
+    if (typeof window.showLoading === 'function') {
+        window.showLoading("Loading your marketplace...");
+    }
 
-    console.log("Stored senderUid:", authData.user.id);
-    console.log("Current stud_id in localStorage:", localStorage.getItem("stud_id"));
-
-    // Redirect based on is_role after short delay
-    setTimeout(() => {
+    // Small delay to ensure loading screen appears before redirect
+setTimeout(() => {
         if (user.is_role === 1) {
             window.location.href = "admin.html";
         } else {
@@ -348,7 +342,6 @@
         }
     }, 1500); // Adjust delay if needed
 };
-
 
     </script>
     <script src="loading-screen.js"></script>

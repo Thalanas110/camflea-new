@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Dashboard - CamFlea</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <!-- Admin Authentication Check - Must load before page content -->
+    <script src="js/admin-auth.js"></script>
+    <link rel="stylesheet" href="css/admin-main-style.css" />
+</head>
+<body>
+    <header>
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+            ☰
+        </button>
+        <div class="header-content">
+            <h1>Admin Dashboard</h1>
+        </div>
+    </header>
+    
+    <div class="sidenav-overlay" id="sidenavOverlay"></div>
+    
+    <div class="layout-container">
+        <aside class="sidenav" id="sidenav">
+            <div class="sidenav-header">Navigation</div>
+            <nav class="admin-nav">
+                <button id="userManagementBtn" class="nav-button" data-page="user_management.html">
+                    User Management
+                </button>
+                <button id="postItemManagementBtn" class="nav-button" data-page="admin_post_item_management.html">
+                    Post & Item Management
+                </button>
+                <button id="transactionMonitoringBtn" class="nav-button" data-page="transaction_monitoring.html">
+                    Transaction Monitoring
+                </button>
+                <button id="reportsViolationsBtn" class="nav-button" data-page="reports_violations.html">
+                    Reports & Violations Center
+                </button>
+                <button id="logoutBtn" class="nav-button logout-button" data-page="/Login_page.html">
+                    Log Out
+                </button>
+            </nav>
+        </aside>
+        
+        <main>
+            <div class="content">
+                <p>Welcome to the admin dashboard. Here you can manage the application.</p>
+            </div>
+
+            <section class="content stats-section">
+            <div class="dashboard-header">
+                <h2>📊 Analytics Dashboard</h2>
+                <div class="loading-indicator" id="loadingIndicator">
+                    <div class="spinner"></div>
+                    <span>Loading analytics...</span>
+                </div>
+            </div>
+            
+            <!-- User Analytics Category -->
+            <div class="category-section">
+                <h3 class="category-title">
+                    <span class="category-icon">👥</span>
+                    User Analytics
+                </h3>
+                <div class="category-grid">
+                    <div class="stat-card user-analytics" id="userStatsCard">
+                        <div class="card-header">
+                            <h4>Users by School</h4>
+                            <span class="card-badge">Demographics</span>
+                        </div>
+                        <canvas id="userStatsPieChart"></canvas>
+                        <ul class="stat-list" id="userStatsList" style="display:none;">
+                            <li>Loading...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Marketplace Analytics Category -->
+            <div class="category-section">
+                <h3 class="category-title">
+                    <span class="category-icon">🛍️</span>
+                    Marketplace Analytics
+                </h3>
+                <div class="category-grid">
+                    <div class="stat-card marketplace-analytics" id="itemStatsCard">
+                        <div class="card-header">
+                            <h4>Available Items by Type</h4>
+                            <span class="card-badge">Inventory</span>
+                        </div>
+                        <canvas id="itemsByTypeChart"></canvas>
+                    </div>
+                    <div class="stat-card marketplace-analytics" id="soldItemStatsCard">
+                        <div class="card-header">
+                            <h4>Sold Items by Type</h4>
+                            <span class="card-badge">Sales</span>
+                        </div>
+                        <canvas id="soldItemsByTypeChart"></canvas>
+                    </div>
+                    <div class="stat-card marketplace-analytics" id="itemStatusCard">
+                        <div class="card-header">
+                            <h4>Items by Status</h4>
+                            <span class="card-badge">Availability</span>
+                        </div>
+                        <canvas id="itemStatusPieChart"></canvas>
+                        <ul class="stat-list" id="itemStatusList" style="display:none;">
+                            <li>Loading...</li>
+                        </ul>
+                    </div>
+                    <div class="stat-card marketplace-analytics" id="conditionCard">
+                        <div class="card-header">
+                            <h4>Items by Condition</h4>
+                            <span class="card-badge">Quality</span>
+                        </div>
+                        <canvas id="conditionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pricing Analytics Category -->
+            <div class="category-section">
+                <h3 class="category-title">
+                    <span class="category-icon">💰</span>
+                    Pricing Analytics
+                </h3>
+                <div class="category-grid">
+                    <div class="stat-card pricing-analytics" id="priceRangeCard">
+                        <div class="card-header">
+                            <h4>Items by Price Range</h4>
+                            <span class="card-badge">Distribution</span>
+                        </div>
+                        <canvas id="priceRangeChart"></canvas>
+                        <ul class="stat-list" id="priceRangeList" style="display:none;">
+                            <li>Loading...</li>
+                        </ul>
+                    </div>
+                    <div class="stat-card pricing-analytics" id="priceTypeCard">
+                        <div class="card-header">
+                            <h4>Price Type Distribution</h4>
+                            <span class="card-badge">Strategy</span>
+                        </div>
+                        <canvas id="priceTypeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction Analytics Category -->
+            <div class="category-section">
+                <h3 class="category-title">
+                    <span class="category-icon">💳</span>
+                    Transaction Analytics
+                </h3>
+                <div class="category-grid">
+                    <div class="stat-card transaction-analytics" id="transactionStatsCard">
+                        <div class="card-header">
+                            <h4>Transaction Status</h4>
+                            <span class="card-badge">Flow</span>
+                        </div>
+                        <canvas id="transactionStatusPieChart"></canvas>
+                        <ul class="stat-list" id="transactionStatsList" style="display:none;">
+                            <li>Loading...</li>
+                        </ul>
+                    </div>
+                    <div class="stat-card transaction-analytics" id="timeToSellCard">
+                        <div class="card-header">
+                            <h4>Average Days to Sell</h4>
+                            <span class="card-badge">Performance</span>
+                        </div>
+                        <canvas id="timeToSellChart"></canvas>
+                        <ul class="stat-list" id="timeToSellList">
+                            <li>Loading...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trends & Reports Category -->
+            <div class="category-section">
+                <h3 class="category-title">
+                    <span class="category-icon">📈</span>
+                    Trends & Reports
+                </h3>
+                <div class="category-grid">
+                    <div class="stat-card trends-analytics" id="listingTrendCard">
+                        <div class="card-header">
+                            <h4>Listing Trends Over Time</h4>
+                            <span class="card-badge">Growth</span>
+                        </div>
+                        <canvas id="listingTrendChart"></canvas>
+                    </div>
+                    <div class="stat-card trends-analytics" id="reportStatsCard">
+                        <div class="card-header">
+                            <h4>Reports by Violation Type</h4>
+                            <span class="card-badge">Security</span>
+                        </div>
+                        <canvas id="reportTypePieChart"></canvas>
+                        <ul class="stat-list" id="reportStatsList" style="display:none;">
+                            <li>Loading...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script type="module" src="js/admin-main.js"></script>
+</body>
+</html>

@@ -278,9 +278,34 @@
         100% { transform: rotate(360deg); }
     }
 
+    #back-button {
+        background-color: #069210;
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        padding: 0;
+    }
+
+    #back-button:hover {
+        background-color: #057a1a;
+    }
+
   </style>
 </head>
 <body>
+  <button id="back-button" title="Go Back">
+    <img src="Homepage_images/return-icon.png" alt="Return Icon" style="width: 16px; height: 16px; filter: invert(100%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(100%) contrast(100%);">
+  </button>
   <div class="container">
     <div class="logo-container">
       <img src="Login_images/LOGO.png" alt="CamFlea Logo"> <!-- Ensure this path is correct -->
@@ -315,7 +340,14 @@
     </div>
   </div>
 
-<script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script>
+  // --- Supabase Configuration ---
+  const supabaseClient = supabase.createClient(
+      'https://wuhgqjeijmxsgvnykttj.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1aGdxamVpam14c2d2bnlrdHRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MjkzMDQsImV4cCI6MjA1ODQwNTMwNH0._lZy7CE2A8HM1hatjGYrMR8QAUi8nk4L_EuV7Fojhwg'
+  );
+
   // --- EmailJS Configuration ---
   // !!! REPLACE WITH YOUR ACTUAL EMAILJS CREDENTIALS !!!
   const EMAILJS_SERVICE_ID = "camflea";
@@ -371,12 +403,20 @@
   window.onload = function() {
     console.log("auth.html: Page loaded. Checking for email query parameter.");
     const emailFromQuery = getQueryParam('email');
+    const actionFromQuery = getQueryParam('action');
     console.log("auth.html: Email from query parameter:", emailFromQuery);
+    console.log("auth.html: Action from query parameter:", actionFromQuery);
 
     if (emailFromQuery && emailFromQuery.trim() !== "") {
       const decodedEmail = decodeURIComponent(emailFromQuery);
       emailInput.value = decodedEmail;
       console.log("auth.html: Email input field set to:", decodedEmail);
+
+      // Update page title and instructions based on action
+      if (actionFromQuery === 'resetpassword') {
+        document.querySelector('h2').textContent = 'Verify Your Email for Password Reset';
+        document.querySelector('p.instructions').textContent = 'To reset your password, please verify your email address. Your email is shown below.';
+      }
     } else {
       showStatus("<strong>Error:</strong> Email address not found in URL. Please return to the signup page and try again.", 'error');
       console.error("auth.html: Email query parameter 'email' is missing or empty.");
@@ -479,11 +519,87 @@
 
     try {
       if (enteredOtp === generatedOtp && generatedOtp !== "") { // Also check generatedOtp is not empty
-          const successMsg = "Verification successful! Redirecting to login...";
-          showStatus(`<strong>Success:</strong> ${successMsg}`, 'success');
-          setTimeout(() => {
-              window.location.href = "Login_page.html";
-          }, 2000);
+          const actionFromQuery = getQueryParam('action');
+
+          if (actionFromQuery === 'resetpassword') {
+              // Handle password reset
+              const resetEmail = localStorage.getItem('resetEmail');
+              const resetPassword = localStorage.getItem('resetPassword');
+
+              if (resetEmail && resetPassword) {
+                  // Call server endpoint to update auth.users password
+                  const response = await fetch('/update-password', {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ email: resetEmail, password: resetPassword }),
+                  });
+
+                  const data = await response.json();
+                  if (!data.success) {
+                      console.error('Failed to update password:', data.message);
+                      showStatus('Verification successful, but password reset failed. Please contact support.', 'error');
+                      return;
+                  }
+
+                  // Clear localStorage
+                  localStorage.removeItem('resetEmail');
+                  localStorage.removeItem('resetPassword');
+
+                  const successMsg = "Password reset successful! Redirecting to login...";
+                  showStatus(`<strong>Success:</strong> ${successMsg}`, 'success');
+                  setTimeout(() => {
+                      window.location.href = "Login_page.html";
+                  }, 2000);
+              } else {
+                  showStatus('Reset data not found. Please try again.', 'error');
+              }
+          } else {
+              // Default signup flow
+              const signupData = JSON.parse(localStorage.getItem('signupData'));
+              if (signupData) {
+                  // Calculate age from birthday
+                  const birthDate = new Date(signupData.birthday);
+                  const today = new Date();
+                  let age = today.getFullYear() - birthDate.getFullYear();
+                  const monthDiff = today.getMonth() - birthDate.getMonth();
+                  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                      age--;
+                  }
+
+                  const { data: student, error: studentError } = await supabaseClient
+                      .from('student')
+                      .insert({
+                          user_id: signupData.userId,
+                          stud_fname: signupData.firstName,
+                          stud_lname: signupData.lastName,
+                          stud_email: signupData.email,
+                          stud_phone: signupData.phoneNumber,
+                          stud_school: signupData.school,
+                          stud_age: age,
+                          stud_year: signupData.yearLevel,
+                          stud_course: signupData.course,
+                          stud_program: signupData.program,
+                          is_role: 0,
+                      });
+
+                  if (studentError) {
+                      console.error('Error inserting student details:', studentError);
+                      showStatus('Verification successful, but account creation failed. Please contact support.', 'error');
+                      return;
+                  }
+
+                  // Clear localStorage after successful insertion
+                  localStorage.removeItem('signupData');
+              }
+
+              const successMsg = "Verification successful! Account created. Redirecting to login...";
+              showStatus(`<strong>Success:</strong> ${successMsg}`, 'success');
+              setTimeout(() => {
+                  window.location.href = "Login_page.html";
+              }, 2000);
+          }
       } else {
           throw { message: "The OTP entered is invalid or has expired." };
       }
@@ -504,6 +620,11 @@
           event.preventDefault(); // Prevent default form submission if it were in a form
           verifyOTP();
       }
+  });
+
+  // Add event listener for back button
+  document.getElementById('back-button').addEventListener('click', () => {
+      window.location.href = 'SignUp_page.html';
   });
 
 </script>

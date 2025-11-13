@@ -255,9 +255,6 @@
        }
     </style>
 <script>
- // Save bio to localStorage (simulating database) function saveBioToDatabase(bioText) { localStorage.setItem('userBio', bioText); }
-
-
 function enableEditing() {
     const container = document.querySelector('.bio-container');
     const display = document.getElementById('bioDisplay');
@@ -376,6 +373,275 @@ window.addEventListener('load', async function () {
             }
         });
     }
+
+    // Add event listeners for modals after DOM is loaded
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', window.confirmDelete);
+    }
+    if (cancelDeleteBtn) {
+        cancelDeleteBtn.addEventListener('click', window.closeDeleteModal);
+    }
+
+    const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+    if (deleteConfirmModal) {
+        deleteConfirmModal.addEventListener('click', (event) => {
+            if (event.target === deleteConfirmModal) {
+                window.closeDeleteModal();
+            }
+        });
+    }
+
+    const confirmCancelReasonBtn = document.getElementById('confirmCancelReasonBtn');
+    const closeCancelReasonModalBtn = document.getElementById('closeCancelReasonModalBtn');
+    const cancelReasonModal = document.getElementById('cancelReasonModal');
+    if (confirmCancelReasonBtn) {
+        confirmCancelReasonBtn.addEventListener('click', async () => {
+            const itemId = window.cancelItemIdToConfirm;
+            const cancellationReason = document.getElementById('cancellationReason').value.trim();
+
+            if (!itemId) return;
+
+            if (!cancellationReason) {
+                alert('Please provide a reason for cancellation.');
+                return;
+            }
+
+            const studId = localStorage.getItem('stud_id');
+            if (!studId) {
+                alert('User not logged in. Redirecting to login page.');
+                window.location.href = 'Login_page.html';
+                return;
+            }
+
+            try {
+                // Find the buyer_id for the item with status 'requested'
+                const { data: transactions, error: fetchTransError } = await supabase
+                    .from('transactions')
+                    .select('buyer_id')
+                    .eq('item_uuid', itemId)
+                    .in('status', ['requested'])
+                    .limit(1);
+
+                if (fetchTransError) {
+                    console.error('Error fetching transaction buyer:', fetchTransError);
+                    alert('Failed to cancel transaction: ' + fetchTransError.message);
+                    return;
+                }
+
+                if (!transactions || transactions.length === 0) {
+                    alert('No active transaction found for this item.');
+                    return;
+                }
+
+                const buyerId = transactions[0].buyer_id;
+
+                // Fetch item name for notification content
+                const { data: itemData, error: itemFetchError } = await supabase
+                    .from('item')
+                    .select('item_name')
+                    .eq('item_id', itemId)
+                    .single();
+
+                if (itemFetchError) {
+                    console.error('Error fetching item name:', itemFetchError);
+                }
+
+                const itemName = itemData ? itemData.item_name : 'your item';
+
+                // Insert notification to buyer that seller cancelled with reason
+                const notificationContent = `I am cancelling my transaction for ${itemName}. Reason: ${cancellationReason}`;
+                // Get current authenticated user UUID
+                const { data: { user }, error: userError } = await supabase.auth.getUser();
+                if (userError || !user) {
+                    console.error('User not authenticated', userError);
+                    return;
+                }
+                const userUuid = user.id;
+
+                // Map buyerId (stud_id) to buyer UUID by querying student table for user_id
+                const { data: buyerStudent, error: buyerStudentError } = await supabase
+                    .from('student')
+                    .select('user_id')
+                    .eq('stud_id', buyerId)
+                    .single();
+
+                let buyerUuid = null;
+                if (buyerStudentError || !buyerStudent) {
+                    console.error('Error mapping buyer stud_id to user_id:', buyerStudentError);
+                    return; // Stop if UUID not found
+                } else {
+                    buyerUuid = buyerStudent.user_id;
+                }
+
+                // Insert notification with sender_uuid and receiver_uuid
+                const { error: notifError } = await supabase
+                    .from('notifications')
+                    .insert({
+                        sender_uuid: userUuid,
+                        receiver_uuid: buyerUuid,
+                        sender_id: studId,
+                        receiver_id: buyerId,
+                        type: 'cancel_trans',
+                        content: notificationContent,
+                        created_at: new Date().toISOString()
+                    });
+
+                if (notifError) {
+                    console.error('Error inserting notification:', notifError);
+                }
+
+                // --- Start: Add message sending logic ---
+                let currentConversationId = null;
+                let user1_id = parseInt(studId, 10);
+                let user2_id = parseInt(buyerId, 10);
+
+                if (user1_id > user2_id) {
+                    [user1_id, user2_id] = [user2_id, user1_id];
+                }
+
+                const { data: existingConversations, error: existingError } = await supabase
+                    .from('conversation')
+                    .select('conversation_id')
+                    .or(`and(user1_id.eq.${user1_id},user2_id.eq.${user2_id})`)
+                    .limit(1);
+
+                if (existingError) {
+                    console.error('Error checking existing conversation:', existingError);
+                    // Do not alert, as notification might still be sent.
+                } else if (existingConversations && existingConversations.length > 0) {
+                    currentConversationId = existingConversations[0].conversation_id;
+                } else {
+                    // Create new conversation if it doesn't exist
+                    const { data: newConversation, error: createError } = await supabase
+                        .from('conversation')
+                        .insert([{ user1_id, user2_id, user1_uuid: userUuid, user2_uuid: buyerUuid }])
+                        .select()
+                        .single();
+
+                    if (createError) {
+                        console.error('Error creating conversation:', createError);
+                    } else {
+                        currentConversationId = newConversation.conversation_id;
+                    }
+                }
+
+                if (currentConversationId) {
+                    const { data: newMessage, error: messageError } = await supabase
+                        .from('message')
+                        .insert({
+                            sender_id: studId,
+                            receiver_id: buyerId,
+                            sender_uid: userUuid,
+                            receiver_uid: buyerUuid,
+                            mess_content: notificationContent,
+                            conversation_id: currentConversationId,
+                        })
+                        .select()
+                        .single();
+
+                    if (messageError) {
+                        console.error('Error inserting message:', messageError);
+                        showBanner('Failed to send cancellation message: ' + messageError.message, 'error');
+                    } else {
+                        console.log('Cancellation message sent successfully:', newMessage);
+                        // Update conversation table's last_message_id and updated_at fields
+                        const { error: updateConvError } = await supabase
+                            .from('conversation')
+                            .update({
+                                last_message_id: newMessage.mess_id,
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('conversation_id', currentConversationId);
+
+                        if (updateConvError) {
+                            console.error('Error updating conversation last_message_id:', updateConvError);
+                            // This error is less critical, no need to show banner to user
+                        }
+                        showBanner('Cancellation message sent successfully!', 'success');
+                    }
+                } else {
+                    console.warn('Could not determine conversation ID, message not sent.');
+                    showBanner('Could not send cancellation message (conversation not found).', 'error');
+                }
+                // --- End: Add message sending logic ---
+
+                // Update the transactions table to set status to 'cancelled' for this item and buyer
+                const { error: transError } = await supabase
+                    .from('transactions')
+                    .update({ status: 'cancelled' })
+                    .eq('item_uuid', itemId)
+                    .eq('buyer_id', buyerId);
+
+                if (transError) {
+                    console.error('Error updating transaction status:', transError);
+                    showBanner('Failed to cancel transaction: ' + transError.message, 'error');
+                    return;
+                }
+
+                // Update the item table to set item_status to 'available'
+                const { error: itemError } = await supabase
+                    .from('item')
+                    .update({ item_status: 'available' })
+                    .eq('item_id', itemId);
+
+                if (itemError) {
+                    console.error('Error updating item status:', itemError);
+                    showBanner('Failed to update item status: ' + itemError.message, 'error');
+                    return;
+                }
+
+                showBanner('Transaction cancelled successfully.', 'success');
+                // Clear the timestamp from localStorage for the cancelled transaction
+                localStorage.removeItem(`cancelTimer_seller_${itemId}`);
+                await debouncedFetchUserPostedItems(); // Refresh the items list using debounced function
+            } catch (err) {
+                console.error('Unexpected error cancelling transaction:', err);
+                showBanner('Failed to cancel transaction due to unexpected error.', 'error');
+            } finally {
+                // Close the modal and clear the reason field
+                document.getElementById('cancellationReason').value = '';
+                document.getElementById('cancelReasonModal').style.display = 'none';
+                window.cancelItemIdToConfirm = null;
+            }
+        });
+    }
+    if (closeCancelReasonModalBtn) {
+        closeCancelReasonModalBtn.addEventListener('click', () => {
+            document.getElementById('cancellationReason').value = '';
+            document.getElementById('cancelReasonModal').style.display = 'none';
+            window.cancelItemIdToConfirm = null;
+        });
+    }
+    if (cancelReasonModal) {
+        cancelReasonModal.addEventListener('click', (event) => {
+            if (event.target === cancelReasonModal) {
+                document.getElementById('cancellationReason').value = '';
+                document.getElementById('cancelReasonModal').style.display = 'none';
+                window.cancelItemIdToConfirm = null;
+            }
+        });
+    }
+
+    const customAlertCloseBtn = document.getElementById('customAlertCloseBtn');
+    const customAlertModal = document.getElementById('customAlertModal');
+    if (customAlertCloseBtn) {
+        customAlertCloseBtn.addEventListener('click', () => {
+            customAlertModal.style.display = 'none';
+        });
+    }
+    if (customAlertModal) {
+        customAlertModal.addEventListener('click', (event) => {
+            if (event.target === customAlertModal) {
+                event.target.style.display = 'none';
+            }
+        });
+    }
+
+    // Replace existing alert calls with showCustomAlert
+    const originalAlert = window.alert;
+    window.alert = showCustomAlert;
 });
 
     function timeAgo(createdAt) {
@@ -460,8 +726,9 @@ function startCountdownForCancelButton(itemCard, itemId) {
 </head> 
 <nav class="bg-[#069210] flex flex-col sm:flex-row justify-between items-center py-2 px-4 sm:px-10"> 
     <div class="flex items-center space-x-6 mb-2 sm:mb-0">
-        <a id="navHome" class="text-white pointer-events-none opacity-50 px-3 py-1 rounded-md font-semibold hover:bg-[#057a1a]" href="index.html">Home</a>
-    </div> 
+        <a id="navHome" class="text-white pointer-events-none opacity-50 px-3 py-1 rounded-md font-semibold hover:bg-[#057a1a]" href="Login_page.html">Home</a>
+        <a id="navPostItem" class="text-white pointer-events-none opacity-50 px-3 py-1 rounded-md font-semibold hover:bg-[#057a1a]" href="post_item.html">Post Item</a>
+    </div>
     <img alt="Logo" class="h-16 w-35 my-2 sm:my-0" src="Homepage_images/LOGO_WHITE.png"/> 
     <div class="flex items-center space-x-6"> 
         <a class="text-white px-3 py-1 rounded-md font-semibold hover:bg-[#057a1a]" href="Login_page.html">Logout</a> 
@@ -489,8 +756,12 @@ function startCountdownForCancelButton(itemCard, itemId) {
         />
         <div class="text-center sm:text-left mt-2 sm:mt-0">
             <h2 id="userName" class="text-xl font-semibold">User Name</h2>
-            <p id="userSchool" style="display: flex; align-items: center; gap: 6px;">School Name</p>
-            <!-- Removed duplicate logo appending script to avoid size conflicts -->
+            <p id="userAge" class="text-sm text-gray-600">Age: </p>
+            <p id="userYearLevel" class="text-sm text-gray-600">Year Level: </p>
+            <p id="userCourse" class="text-sm text-gray-600">Course: </p>
+            <p id="userProgram" class="text-sm text-gray-600">Program: </p>
+            <p id="userSchool" style="display: none;">School Name</p>
+           <!-- Removed duplicate logo appending script to avoid size conflicts -->
             <div class="flex items-center space-x-2 mt-2">
                 <i class="fas fa-star text-yellow-500"></i>
                 <span>0.0 (0)</span>
@@ -1598,7 +1869,7 @@ window.markAsSent = async function markAsSent(itemId) {
         // Fetch user data from Supabase
         const { data: user, error } = await supabase
             .from('student')
-            .select('stud_fname, stud_lname, stud_school, stud_bio, stud_picture')
+            .select('stud_fname, stud_lname, stud_school, stud_bio, stud_picture, stud_age, stud_course, stud_program, stud_year')
             .eq('stud_id', studId)
             .single();
 
@@ -1611,6 +1882,10 @@ window.markAsSent = async function markAsSent(itemId) {
         // Populate the profile fields
         document.getElementById('userName').innerText = `${user.stud_fname} ${user.stud_lname}`;
         document.getElementById('userSchool').innerText = user.stud_school;
+        document.getElementById('userAge').innerText = `Age: ${user.stud_age || ''}`;
+        document.getElementById('userYearLevel').innerText = `Year Level: ${user.stud_year || ''}`;
+        document.getElementById('userCourse').innerText = `Course: ${user.stud_course || ''}`;
+        document.getElementById('userProgram').innerText = `Program: ${user.stud_program || ''}`;
         document.getElementById('bioDisplay').textContent = user.stud_bio || 'Place your Bio here...';
 
         // Display the profile picture
@@ -1776,13 +2051,7 @@ window.markAsSent = async function markAsSent(itemId) {
     modal.style.display = 'flex';
   }
 
-  // Close modal and clear iframe src
-  document.getElementById('closeEditItemModal').addEventListener('click', () => {
-    const modal = document.getElementById('editItemModal');
-    const iframe = document.getElementById('editItemIframe');
-    iframe.src = '';
-    modal.style.display = 'none';
-  });
+
 
   // Close modal if user clicks outside the modal content
   window.addEventListener('click', (event) => {

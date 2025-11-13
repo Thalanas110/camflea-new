@@ -1,0 +1,92 @@
+-- Create ENUM type for year levels
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'year_level') THEN
+    CREATE TYPE year_level AS ENUM ('1st', '2nd', '3rd', '4th');
+  END IF;
+END$$;
+
+
+-- Create ENUM type for programs
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'program_type') THEN
+    CREATE TYPE program_type AS ENUM ('CAHS', 'CBA', 'CCS', 'CEAS', 'CHTM');
+  END IF;
+END$$;
+
+
+-- Add columns to the student table
+ALTER TABLE public.student 
+ADD COLUMN IF NOT EXISTS stud_birthday DATE,
+ADD COLUMN IF NOT EXISTS stud_age INTEGER,
+ADD COLUMN IF NOT EXISTS stud_year year_level,
+ADD COLUMN IF NOT EXISTS stud_program program_type,
+ADD COLUMN IF NOT EXISTS stud_course VARCHAR(100);
+
+-- Create a function to calculate age based on birthday
+CREATE OR REPLACE FUNCTION calculate_age(birthday DATE) RETURNS INTEGER AS $$
+BEGIN
+  RETURN EXTRACT(YEAR FROM AGE(CURRENT_DATE, birthday))::INTEGER;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create a trigger to automatically update age when birthday is inserted or updated
+CREATE OR REPLACE FUNCTION update_age_trigger() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.stud_birthday IS NOT NULL THEN
+    NEW.stud_age := calculate_age(NEW.stud_birthday);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Attach the trigger to the student table
+DROP TRIGGER IF EXISTS trigger_update_age ON public.student;
+CREATE TRIGGER trigger_update_age
+  BEFORE INSERT OR UPDATE OF stud_birthday ON public.student
+  FOR EACH ROW
+  EXECUTE FUNCTION update_age_trigger();
+
+-- Add check constraint for stud_course to ensure it's one of the valid courses
+ALTER TABLE public.student 
+ADD CONSTRAINT check_stud_course 
+CHECK (stud_course IN (
+  'Bachelor of Science in Nursing',
+  'Bachelor of Science in Midwifery',
+  'Bachelor of Science in Accountancy',
+  'Bachelor of Science in Business Administration Major in Financial Management',
+  'Bachelor of Science in Business Administration Major in Human Resource Management',
+  'Bachelor of Science in Business Administration Major in Marketing Management',
+  'Bachelor of Science in Customs Administration',
+  'Bachelor of Science in Computer Science',
+  'Bachelor of Science in Entertainment and Multimedia Computing',
+  'Bachelor of Science in Information Technology',
+  'Bachelor of Arts in Communication',
+  'Bachelor of Early Childhood Education',
+  'Bachelor of Culture and Arts Education',
+  'Bachelor of Physical Education',
+  'Bachelor of Elementary Education (General Education)',
+  'Bachelor of Secondary Education major in English',
+  'Bachelor of Secondary Education major in Filipino',
+  'Bachelor of Secondary Education major in Mathematics',
+  'Bachelor of Secondary Education major in Social Studies',
+  'Bachelor of Secondary Education major in Sciences',
+  'Teacher Certificate Program (TCP)',
+  'Bachelor of Science in Hospitality Management',
+  'Bachelor of Science in Tourism Management'
+));
+
+-- Optional: Add a function to get program based on course (for reference)
+CREATE OR REPLACE FUNCTION get_program_from_course(course_name VARCHAR) RETURNS program_type AS $$
+BEGIN
+  CASE
+    WHEN course_name IN ('Bachelor of Science in Nursing', 'Bachelor of Science in Midwifery') THEN RETURN 'CAHS'::program_type;
+    WHEN course_name IN ('Bachelor of Science in Accountancy', 'Bachelor of Science in Business Administration Major in Financial Management', 'Bachelor of Science in Business Administration Major in Human Resource Management', 'Bachelor of Science in Business Administration Major in Marketing Management', 'Bachelor of Science in Customs Administration') THEN RETURN 'CBA'::program_type;
+    WHEN course_name IN ('Bachelor of Science in Computer Science', 'Bachelor of Science in Entertainment and Multimedia Computing', 'Bachelor of Science in Information Technology') THEN RETURN 'CCS'::program_type;
+    WHEN course_name IN ('Bachelor of Arts in Communication', 'Bachelor of Early Childhood Education', 'Bachelor of Culture and Arts Education', 'Bachelor of Physical Education', 'Bachelor of Elementary Education (General Education)', 'Bachelor of Secondary Education major in English', 'Bachelor of Secondary Education major in Filipino', 'Bachelor of Secondary Education major in Mathematics', 'Bachelor of Secondary Education major in Social Studies', 'Bachelor of Secondary Education major in Sciences', 'Teacher Certificate Program (TCP)') THEN RETURN 'CEAS'::program_type;
+    WHEN course_name IN ('Bachelor of Science in Hospitality Management', 'Bachelor of Science in Tourism Management') THEN RETURN 'CHTM'::program_type;
+    ELSE RETURN NULL;
+  END CASE;
+END;
+$$ LANGUAGE plpgsql;

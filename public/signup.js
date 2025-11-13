@@ -20,7 +20,7 @@ document.getElementById('signupForm').addEventListener('submit', async (event) =
     const data = await response.json();
     if (data.success) {
         alert('Signup successful!');
-        window.location.href = 'MFA.html';
+        window.location.href = `MFA.html?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
     } else {
         alert('Signup failed: ' + data.message);
     }

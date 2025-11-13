@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Post & Item Management - CamFlea</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <!-- Admin Authentication Check - Must load before page content -->
+    <script src="js/admin-auth.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/admin-post-item-management.css" />
+    <style>
+  
+    </style>
+</head>
+<body>
+    <header>
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+            ☰
+        </button>
+        <div class="header-content">
+            <h1>Post & Item Management</h1>
+        </div>
+    </header>
+    
+    <div class="sidenav-overlay" id="sidenavOverlay"></div>
+    
+    <div class="layout-container">
+        <aside class="sidenav" id="sidenav">
+            <div class="sidenav-header">Navigation</div>
+            <nav class="admin-nav">
+                <a href="admin.html" class="nav-button">
+                    Admin Dashboard
+                </a>
+                <a href="user_management.html" class="nav-button">
+                    User Management
+                </a>
+                <a href="admin_post_item_management.html" class="nav-button active">
+                    Post & Item Management
+                </a>
+                <a href="transaction_monitoring.html" class="nav-button">
+                    Transaction Monitoring
+                </a>
+                <a href="reports_violations.html" class="nav-button">
+                    Reports & Violations Center
+                </a>
+                <button id="logoutBtn" class="nav-button logout-button">
+                    Log Out
+                </button>
+            </nav>
+        </aside>
+        
+        <div class="content-wrapper">
+            <div class="content-container">
+                <aside class="search-filter-sidebar">
+                    <div class="sidebar-header">
+                        <h2><i class="fas fa-filter"></i> Smart Filters</h2>
+                        <div class="filter-count" id="filterCount">0 active</div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="school-filter">
+                            <i class="fas fa-school"></i>
+                            School From
+                        </label>
+                        <div class="select-wrapper">
+                            <select id="school-filter">
+                                <option value="">All Schools</option>
+                                <option value="Gordon College">Gordon College</option>
+                                <option value="Columban College">Columban College</option>
+                            </select>
+                            <i class="fas fa-chevron-down select-arrow"></i>
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="item-type-filter">
+                            <i class="fas fa-tags"></i>
+                            Item Categories
+                        </label>
+                        <div class="checkbox-group">
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="books" value="books & school supplies">
+                                <label for="books">📚 Books & School Supplies</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="clothes" value="clothes & accessories">
+                                <label for="clothes">👕 Clothes & Accessories</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="gadgets" value="gadgets & electronics">
+                                <label for="gadgets">📱 Gadgets & Electronics</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="instruments" value="instruments & recreations">
+                                <label for="instruments">🎸 Instruments & Recreations</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="crafted" value="crafted & collectibles">
+                                <label for="crafted">🎨 Crafted & Collectibles</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="sports" value="sports & fitness">
+                                <label for="sports">⚽ Sports & Fitness</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="transaction-status-filter">
+                            <i class="fas fa-circle-check"></i>
+                            Status Filter
+                        </label>
+                        <div class="status-pills">
+                            <div class="status-pill" data-status="available">
+                                <span class="status-dot available"></span>
+                                Available
+                            </div>
+                            <div class="status-pill" data-status="cancelled">
+                                <span class="status-dot cancelled"></span>
+                                Cancelled
+                            </div>
+                            <div class="status-pill" data-status="reserved">
+                                <span class="status-dot reserved"></span>
+                                Reserved
+                            </div>
+                            <div class="status-pill" data-status="sold">
+                                <span class="status-dot sold"></span>
+                                Sold
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="filter-actions">
+                        <button id="clear-filters-btn" class="btn-clear">
+                            <i class="fas fa-eraser"></i>
+                            Clear All Filters
+                        </button>
+                    </div>
+                </aside>
+                <main>
+                    <div class="main-header">
+                        <div class="header-info">
+                            <h2><i class="fas fa-thumbtack"></i> Featured Items</h2>
+                            <p class="header-subtitle">Priority items requiring immediate attention</p>
+                        </div>
+                        <div class="view-controls">
+                            <div class="view-toggle">
+                                <button class="view-btn active" data-view="grid">
+                                    <i class="fas fa-th"></i>
+                                </button>
+                                <button class="view-btn" data-view="list">
+                                    <i class="fas fa-list"></i>
+                                </button>
+                            </div>
+                            <div class="sort-controls">
+                                <select id="sort-select">
+                                    <option value="newest">Newest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                    <option value="price-high">Price: High to Low</option>
+                                    <option value="price-low">Price: Low to High</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="pinned-items-container" class="featured-section">
+                        <div id="pinned-items" class="items-grid"></div>
+                    </div>
+                    
+                    <div class="main-content-header">
+                        <h2><i class="fas fa-store"></i> All Marketplace Items</h2>
+                        <div class="results-info">
+                            <span id="results-count">Loading items...</span>
+                        </div>
+                    </div>
+                    
+                    <div id="items-container" class="items-grid"></div>
+                    
+                    <div id="pagination-controls" class="pagination-wrapper"></div>
+                </main>
+            </div>
+
+            <div id="verified-items-section" style="display: none;">
+                <h2>Verified Items</h2>
+                <div id="verified-items-container" style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;"></div>
+            </div>
+        </div>
+    </div>
+    <script src="js/admin-post-item-management.js"></script>
+    <!-- Modal for Detailed Post -->
+    <div id="detailedPostModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background-color: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center;">
+        <div style="position: relative; width: 90%; max-width: 900px; height: 90%; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; flex-direction: column;">
+            <button id="closeDetailedPostModal" style="position: absolute; top: 10px; right: 10px; background: #049516; color: white; border: none; border-radius: 5px; padding: 8px 12px; font-size: 16px; cursor: pointer; z-index: 2100;">Close</button>
+            <iframe id="detailedPostIframe" src="" style="flex-grow: 1; border: none; border-radius: 0 0 10px 10px;"></iframe>
+        </div>
+    </div>
+</body>
+</html>
