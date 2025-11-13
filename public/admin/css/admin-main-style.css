@@ -214,6 +214,93 @@ h2 {
     }
 }
 
+/* Full-width card for course bar chart */
+.stat-card.full-width {
+    grid-column: 1 / -1;
+}
+
+/* Program courses section */
+.program-courses-section {
+    margin-top: 30px;
+}
+
+.section-subtitle {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.program-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 30px;
+    max-width: 100%;
+    margin-top: 20px;
+}
+
+@media (min-width: 1600px) {
+    .program-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 1200px) and (max-width: 1599px) {
+    .program-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .program-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .program-grid .stat-card {
+        min-height: 350px;
+    }
+}
+
+/* Better spacing for program course cards */
+.stat-card.academic-analytics {
+    padding: 25px;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-card h5 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.card-badge.mini {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+}
+
+/* Canvas sizing for program charts */
+.stat-card.academic-analytics canvas {
+    max-width: 100%;
+    height: auto !important;
+    min-height: 200px;
+}
+
+/* Card header spacing */
+.stat-card.academic-analytics .card-header {
+    margin-bottom: 15px;
+    flex-shrink: 0;
+}
+
+/* Ensure canvas container takes remaining space */
+.stat-card.academic-analytics > canvas {
+    flex-grow: 1;
+}
+
 .stat-card {
     background: #fff;
     border-radius: 16px;

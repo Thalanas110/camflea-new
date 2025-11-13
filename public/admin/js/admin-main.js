@@ -207,6 +207,57 @@ async function fetchStudentsByProgram() {
     return programCounts;
 }
 
+async function fetchCourseStats() {
+    // Fetch all students with stud_course and group by course
+    const { data: allStudents, error: allError } = await supabase
+        .from('student')
+        .select('stud_course');
+
+    if (allError) {
+        console.error('Error fetching students by course:', allError);
+        return {};
+    }
+
+    const courseCounts = {};
+    allStudents.forEach(student => {
+        const course = student.stud_course || 'Unknown';
+        courseCounts[course] = (courseCounts[course] || 0) + 1;
+    });
+
+    return courseCounts;
+}
+
+async function fetchCoursesByProgram() {
+    // Fetch all students with both course and program data
+    const { data: allStudents, error: allError } = await supabase
+        .from('student')
+        .select('stud_course, stud_program');
+
+    if (allError) {
+        console.error('Error fetching students by course and program:', allError);
+        return {};
+    }
+
+    const programCourses = {
+        'CAHS': {},
+        'CBA': {},
+        'CCS': {},
+        'CEAS': {},
+        'CHTM': {}
+    };
+
+    allStudents.forEach(student => {
+        const course = student.stud_course || 'Unknown';
+        const program = student.stud_program || 'Unknown';
+        
+        if (programCourses[program]) {
+            programCourses[program][course] = (programCourses[program][course] || 0) + 1;
+        }
+    });
+
+    return programCourses;
+}
+
 async function fetchItemStats() {
     // Fetch available items by item_type (not sold)
     const { data: availableItems, error: availableError } = await supabase
@@ -681,6 +732,234 @@ function renderProgramStats(programCounts) {
             listElement.appendChild(li);
         });
     }
+}
+
+function renderCourseStats(courseCounts) {
+    // Render horizontal bar chart for courses
+    const ctx = document.getElementById('courseStatsBarChart').getContext('2d');
+    const courses = Object.keys(courseCounts);
+    const counts = Object.values(courseCounts);
+
+    if (window.courseBarChart) {
+        window.courseBarChart.destroy();
+    }
+
+    // Shorten course names for better display
+    const shortenedLabels = courses.map(course => {
+        if (course.length > 40) {
+            return course.substring(0, 37) + '...';
+        }
+        return course;
+    });
+
+    window.courseBarChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: shortenedLabels,
+            datasets: [{
+                label: 'Number of Students',
+                data: counts,
+                backgroundColor: colorPalettes.trendsAnalytics.primary.map((color, index) => {
+                    const gradient = ctx.createLinearGradient(0, 0, 400, 0);
+                    gradient.addColorStop(0, color);
+                    gradient.addColorStop(1, color + '80');
+                    return gradient;
+                }),
+                borderColor: colorPalettes.trendsAnalytics.primary,
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            ...getEnhancedChartOptions('bar', 'trendsAnalytics'),
+            indexAxis: 'y', // Horizontal bar chart
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                ...getEnhancedChartOptions('bar', 'trendsAnalytics').plugins,
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    ...getEnhancedChartOptions('bar', 'trendsAnalytics').plugins.tooltip,
+                    callbacks: {
+                        title: function(context) {
+                            const originalIndex = context[0].dataIndex;
+                            return courses[originalIndex]; // Show full course name in tooltip
+                        },
+                        label: function(context) {
+                            return `Students: ${context.parsed.x}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Number of Students',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: {
+                            size: 11
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Set a dynamic height for the chart based on number of courses
+    const chartContainer = document.getElementById('courseStatsCard');
+    const canvas = document.getElementById('courseStatsBarChart');
+    const minHeight = Math.max(400, courses.length * 35 + 150);
+    canvas.parentElement.style.height = `${minHeight}px`;
+    
+    // Ensure chart resizes properly
+    setTimeout(() => {
+        if (window.courseBarChart) {
+            window.courseBarChart.resize();
+        }
+    }, 100);
+}
+
+function renderProgramCourseStats(programCourses) {
+    const programConfigs = {
+        'CAHS': { 
+            canvasId: 'cahsCoursePieChart', 
+            name: 'College of Allied Health Sciences',
+            color: colorPalettes.userAnalytics.primary
+        },
+        'CBA': { 
+            canvasId: 'cbaCoursePieChart', 
+            name: 'College of Business Administration',
+            color: colorPalettes.marketplaceAnalytics.primary
+        },
+        'CCS': { 
+            canvasId: 'ccsCoursePieChart', 
+            name: 'College of Computer Studies',
+            color: colorPalettes.pricingAnalytics.primary
+        },
+        'CEAS': { 
+            canvasId: 'ceasCoursePieChart', 
+            name: 'College of Education, Arts & Sciences',
+            color: colorPalettes.transactionAnalytics.primary
+        },
+        'CHTM': { 
+            canvasId: 'chtmCoursePieChart', 
+            name: 'College of Hospitality & Tourism Management',
+            color: colorPalettes.trendsAnalytics.primary
+        }
+    };
+
+    Object.keys(programConfigs).forEach(program => {
+        const config = programConfigs[program];
+        const courses = Object.keys(programCourses[program]);
+        const counts = Object.values(programCourses[program]);
+        
+        if (courses.length === 0 || counts.every(count => count === 0)) {
+            // Hide empty program cards
+            const card = document.getElementById(config.canvasId.replace('PieChart', 'Card'));
+            if (card) card.style.display = 'none';
+            return;
+        }
+
+        const ctx = document.getElementById(config.canvasId).getContext('2d');
+        
+        if (window[`${program.toLowerCase()}Chart`]) {
+            window[`${program.toLowerCase()}Chart`].destroy();
+        }
+
+        // Shorten course names for pie chart labels
+        const shortenedLabels = courses.map(course => {
+            const parts = course.split(' ');
+            if (parts.length > 4) {
+                return parts.slice(0, 4).join(' ') + '...';
+            }
+            return course;
+        });
+
+        window[`${program.toLowerCase()}Chart`] = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: shortenedLabels,
+                datasets: [{
+                    data: counts,
+                    backgroundColor: config.color.slice(0, courses.length),
+                    borderColor: '#fff',
+                    borderWidth: 3,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1.1,
+                layout: {
+                    padding: {
+                        top: 10,
+                        bottom: 10
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: {
+                                size: 11,
+                                family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+                            },
+                            padding: 12,
+                            usePointStyle: true,
+                            boxWidth: 12,
+                            boxHeight: 12
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        borderColor: config.color[0],
+                        borderWidth: 2,
+                        cornerRadius: 8,
+                        padding: 12,
+                        titleFont: {
+                            size: 13,
+                            weight: 'bold'
+                        },
+                        bodyFont: {
+                            size: 12
+                        },
+                        callbacks: {
+                            title: function(context) {
+                                const originalIndex = context[0].dataIndex;
+                                return courses[originalIndex]; // Show full course name
+                            },
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return `${context.parsed} students (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
 }
 
 function renderItemStats(availableItemsByType, soldItemsByType) {
@@ -1582,6 +1861,14 @@ async function loadStatistics() {
             async () => {
                 const programStats = await fetchStudentsByProgram();
                 renderProgramStats(programStats);
+            },
+            async () => {
+                const courseStats = await fetchCourseStats();
+                renderCourseStats(courseStats);
+            },
+            async () => {
+                const programCourses = await fetchCoursesByProgram();
+                renderProgramCourseStats(programCourses);
             },
             async () => {
                 const { availableItemsByType, soldItemsByType } = await fetchItemStats();
