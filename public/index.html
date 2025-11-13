@@ -334,8 +334,12 @@
 
     // Small delay to ensure loading screen appears before redirect
     setTimeout(() => {
-        window.location.href = "main.html";
-    }, 300);
+        if (user.is_role === 1) {
+            window.location.href = "admin.html";
+        } else {
+            window.location.href = "main.html";
+        }
+    }, 1500); // Adjust delay if needed
 };
 
     </script>
