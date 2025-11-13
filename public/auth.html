@@ -559,6 +559,15 @@
               // Default signup flow
               const signupData = JSON.parse(localStorage.getItem('signupData'));
               if (signupData) {
+                  // Calculate age from birthday
+                  const birthDate = new Date(signupData.birthday);
+                  const today = new Date();
+                  let age = today.getFullYear() - birthDate.getFullYear();
+                  const monthDiff = today.getMonth() - birthDate.getMonth();
+                  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                      age--;
+                  }
+
                   const { data: student, error: studentError } = await supabaseClient
                       .from('student')
                       .insert({
@@ -568,6 +577,10 @@
                           stud_email: signupData.email,
                           stud_phone: signupData.phoneNumber,
                           stud_school: signupData.school,
+                          stud_age: age,
+                          stud_year: signupData.yearLevel,
+                          stud_course: signupData.course,
+                          stud_program: signupData.program,
                           is_role: 0,
                       });
 

@@ -37,7 +37,269 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
+
+// Redirect legacy admin page path to new location under /admin/
+// Place this BEFORE the static middleware so the redirect takes effect
+app.get('/admin.html', (req, res) => {
+    // Permanent redirect to the new admin page location
+    res.redirect(301, '/admin/admin.html');
+});
+
+// Serve admin-specific asset requests (when admin pages live under /admin/) from public/js
+// This fixes requests such as /admin/js/admin-auth.js -> public/js/admin-auth.js
+app.use('/admin/js', express.static(path.join(__dirname, 'public', 'js')));
+
+// Serve admin CSS files from public/admin/css/
+app.use('/admin/css', express.static(path.join(__dirname, 'public', 'admin', 'css')));
+
+// Serve admin HTML files from public/admin/html/
+app.use('/admin', express.static(path.join(__dirname, 'public', 'admin', 'html')));
+
 app.use(express.static(path.join(__dirname, 'public')));
+
+// API endpoint to provide configuration (excluding sensitive keys)
+app.get('/api/config', (req, res) => {
+    res.json({
+        supabaseUrl: process.env.SUPABASE_URL,
+        supabaseKey: process.env.SUPABASE_KEY
+    });
+});
+
+// API endpoint to verify if a user is an admin
+app.post('/api/verify-admin', async (req, res) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        if (!authHeader) {
+            return res.status(401).json({ success: false, message: 'Authorization header missing' });
+        }
+
+        const token = authHeader.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'Token missing' });
+        }
+
+        // Verify the user's token
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+        if (authError || !user) {
+            console.error('Token verification error:', authError);
+            return res.status(401).json({ success: false, message: 'Invalid token' });
+        }
+
+        // Check if user has admin role in the student table
+        // Note: user_id column in student table matches Supabase auth user.id
+        const { data: studentData, error: studentError } = await supabaseClient
+            .from('student')
+            .select('is_role')
+            .eq('user_id', user.id)
+            .single();
+
+        if (studentError) {
+            console.error('Error fetching student data:', studentError);
+            // If user not found in student table, they're not an admin
+            if (studentError.code === 'PGRST116') {
+                return res.json({ success: true, isAdmin: false });
+            }
+            return res.status(500).json({ success: false, message: 'Error verifying admin status' });
+        }
+
+        // is_role = 1 means admin
+        const isAdmin = studentData && studentData.is_role === 1;
+
+        res.json({ success: true, isAdmin });
+    } catch (error) {
+        console.error('Error in verify-admin endpoint:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+// Admin API endpoint to get all transactions (bypasses RLS)
+app.get('/api/admin/transactions', async (req, res) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        if (!authHeader) {
+            return res.status(401).json({ success: false, message: 'Authorization header missing' });
+        }
+
+        const token = authHeader.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'Token missing' });
+        }
+
+        // Verify the user's token and admin status
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+        if (authError || !user) {
+            return res.status(401).json({ success: false, message: 'Invalid token' });
+        }
+
+        // Check if user has admin role
+        const { data: studentData, error: studentError } = await supabaseClient
+            .from('student')
+            .select('is_role')
+            .eq('user_id', user.id)
+            .single();
+
+        if (studentError || !studentData || studentData.is_role !== 1) {
+            return res.status(403).json({ success: false, message: 'Admin access required' });
+        }
+
+        // Use service role to bypass RLS and get all transactions
+        console.log('🔍 Admin user verified, fetching transactions...');
+        
+        // First, let's check if the transactions table has any data at all
+        const { count: transactionCount, error: countError } = await supabaseClient
+            .from('transactions')
+            .select('*', { count: 'exact', head: true });
+            
+        console.log('📊 Transaction count check:', { count: transactionCount, error: countError });
+        
+        // Try a simple query first
+        const { data: simpleTransactions, error: simpleError } = await supabaseClient
+            .from('transactions')
+            .select('*');
+            
+        console.log('📋 Simple transaction query:', { 
+            count: simpleTransactions?.length || 0, 
+            error: simpleError,
+            sampleData: simpleTransactions?.[0] || null
+        });
+        
+        // Now try the complex query with joins
+        const { data: transactions, error: transError } = await supabaseClient
+            .from('transactions')
+            .select(`
+                transac_id,
+                status,
+                created_at,
+                updated_at,
+                buyer:buyer_id (
+                    stud_id,
+                    stud_fname,
+                    stud_lname
+                ),
+                seller:seller_id (
+                    stud_id,
+                    stud_fname,
+                    stud_lname
+                ),
+                item:item_uuid (
+                    item_id,
+                    item_name
+                )
+            `)
+            .order('created_at', { ascending: false });
+
+        console.log('🔗 Complex transaction query with joins:', { 
+            count: transactions?.length || 0, 
+            error: transError,
+            sampleData: transactions?.[0] || null
+        });
+
+        if (transError) {
+            console.error('❌ Error fetching transactions for admin:', transError);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'Error fetching transactions',
+                error: transError.message,
+                details: transError
+            });
+        }
+
+        // If complex query fails but simple query works, return simple data
+        if (!transactions && simpleTransactions) {
+            console.log('⚠️ Using simple transaction data due to join issues');
+            res.json({ 
+                success: true, 
+                data: simpleTransactions,
+                note: 'Using simplified data structure due to join constraints'
+            });
+        } else {
+            res.json({ success: true, data: transactions || [] });
+        }
+    } catch (error) {
+        console.error('❌ Error in admin transactions endpoint:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server error',
+            error: error.message 
+        });
+    }
+});
+
+// Debug endpoint for admins to check database tables and data
+app.get('/api/admin/debug/tables', async (req, res) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        if (!authHeader) {
+            return res.status(401).json({ success: false, message: 'Authorization header missing' });
+        }
+
+        const token = authHeader.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'Token missing' });
+        }
+
+        // Verify admin access (same as above)
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+        if (authError || !user) {
+            return res.status(401).json({ success: false, message: 'Invalid token' });
+        }
+
+        const { data: studentData, error: studentError } = await supabaseClient
+            .from('student')
+            .select('is_role')
+            .eq('user_id', user.id)
+            .single();
+
+        if (studentError || !studentData || studentData.is_role !== 1) {
+            return res.status(403).json({ success: false, message: 'Admin access required' });
+        }
+
+        // Check various tables
+        const tableInfo = {};
+        
+        // Check transactions table
+        const { count: transCount } = await supabaseClient
+            .from('transactions')
+            .select('*', { count: 'exact', head: true });
+        tableInfo.transactions = { count: transCount };
+        
+        // Check item table
+        const { count: itemCount } = await supabaseClient
+            .from('item')
+            .select('*', { count: 'exact', head: true });
+        tableInfo.item = { count: itemCount };
+        
+        // Check student table
+        const { count: studentCount } = await supabaseClient
+            .from('student')
+            .select('*', { count: 'exact', head: true });
+        tableInfo.student = { count: studentCount };
+        
+        // Get sample data from each table
+        const { data: sampleTransactions } = await supabaseClient
+            .from('transactions')
+            .select('*')
+            .limit(3);
+        tableInfo.transactions.sample = sampleTransactions;
+        
+        const { data: sampleItems } = await supabaseClient
+            .from('item')
+            .select('*')
+            .limit(3);
+        tableInfo.item.sample = sampleItems;
+        
+        const { data: sampleStudents } = await supabaseClient
+            .from('student')
+            .select('stud_id, stud_fname, stud_lname, is_role')
+            .limit(3);
+        tableInfo.student.sample = sampleStudents;
+
+        res.json({ success: true, tableInfo });
+    } catch (error) {
+        console.error('❌ Error in debug tables endpoint:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
 
 // Middleware to authenticate Supabase JWT token and extract user id
 async function authenticateToken(req, res, next) {
@@ -767,7 +1029,8 @@ app.post('/update-password', async (req, res) => {
 // Start the server
 if (process.env.NODE_ENV !== 'production') {
     app.listen(port, () => {
-        console.log(`Server running on port ${port}`);
+        console.log(`✅ Server running on port ${port}`);
+        console.log(`⏲️ Relapse time, good luck on coding!`);
     });
 }
 

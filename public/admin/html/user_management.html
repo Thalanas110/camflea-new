@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>User Management - CamFlea Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <!-- Admin Authentication Check - Must load before page content -->
+    <script src="js/admin-auth.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/user-management.css" />
+    <style>
+    </style>
+</head>
+<body>
+    <header>
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+            ☰
+        </button>
+        <div class="header-content">
+            <h1>User Management</h1>
+        </div>
+    </header>
+    
+    <div class="sidenav-overlay" id="sidenavOverlay"></div>
+    
+    <div class="layout-container">
+        <aside class="sidenav" id="sidenav">
+            <div class="sidenav-header">Navigation</div>
+            <nav class="admin-nav">
+                <a href="admin.html" class="nav-button">
+                    Admin Dashboard
+                </a>
+                <a href="user_management.html" class="nav-button active">
+                    User Management
+                </a>
+                <a href="admin_post_item_management.html" class="nav-button">
+                    Post & Item Management
+                </a>
+                <a href="transaction_monitoring.html" class="nav-button">
+                    Transaction Monitoring
+                </a>
+                <a href="reports_violations.html" class="nav-button">
+                    Reports & Violations Center
+                </a>
+                <button id="logoutBtn" class="nav-button logout-button">
+                    Log Out
+                </button>
+            </nav>
+        </aside>
+        
+        <main>
+            <div class="page-header">
+                <div class="header-info">
+                    <h2><i class="fas fa-users-cog"></i> User Management Center</h2>
+                    <p class="header-subtitle">Monitor and manage user accounts across the platform</p>
+                </div>
+                <div class="stats-overview">
+                    <div class="stat-card total">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="totalUsersCount">0</span>
+                            <span class="stat-label">Total Users</span>
+                        </div>
+                    </div>
+                    <div class="stat-card active">
+                        <div class="stat-icon">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="activeUsersCount">0</span>
+                            <span class="stat-label">Active Users</span>
+                        </div>
+                    </div>
+                    <div class="stat-card flagged">
+                        <div class="stat-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="flaggedUsersCount">0</span>
+                            <span class="stat-label">Flagged Users</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content">
+                <div class="content-header">
+                    <div class="section-info">
+                        <h3 class="section-title">
+                            <i class="fas fa-table"></i>
+                            User Directory
+                        </h3>
+                        <div class="user-count-badge">
+                            <i class="fas fa-database"></i>
+                            <span id="displayedUsersCount">0</span> users
+                        </div>
+                    </div>
+                    <div class="content-actions">
+                        <button class="refresh-btn" id="refreshBtn">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh Data
+                        </button>
+                        <button class="export-btn" id="exportUsersBtn">
+                            <i class="fas fa-download"></i>
+                            Export CSV
+                        </button>
+                    </div>
+                </div>
+
+                <div class="enhanced-search-bar">
+                    <div class="search-group">
+                        <div class="search-input-wrapper">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" id="searchInput" placeholder="Search by name, ID, email..." />
+                            <button class="clear-search-btn" id="clearSearchBtn" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <div class="select-wrapper">
+                            <i class="fas fa-school filter-icon"></i>
+                            <select id="schoolFilter">
+                                <option value="">All Schools</option>
+                            </select>
+                            <i class="fas fa-chevron-down select-arrow"></i>
+                        </div>
+                        <div class="select-wrapper">
+                            <i class="fas fa-filter filter-icon"></i>
+                            <select id="statusFilter">
+                                <option value="">All Status</option>
+                                <option value="active">Active Users</option>
+                                <option value="banned">Banned Users</option>
+                                <option value="restricted">Restricted Users</option>
+                                <option value="warned">Warned Users</option>
+                            </select>
+                            <i class="fas fa-chevron-down select-arrow"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="enhanced-table-wrapper">
+                    <div class="table-container">
+                        <table id="usersTable" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-hashtag"></i> User ID</th>
+                                    <th><i class="fas fa-user"></i> Name</th>
+                                    <th><i class="fas fa-school"></i> School</th>
+                                    <th><i class="fas fa-envelope"></i> Email</th>
+                                    <th><i class="fas fa-image"></i> Picture</th>
+                                    <th><i class="fas fa-exclamation-circle"></i> Warnings</th>
+                                    <th><i class="fas fa-phone"></i> Phone</th>
+                                    <th><i class="fas fa-cog"></i> Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="loading-row">
+                                    <td colspan="8">
+                                        <div class="loading-content">
+                                            <div class="loading-spinner"></div>
+                                            <span>Loading user data...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="noResults" class="empty-state" style="display:none;">
+                    <div class="empty-icon">
+                        <i class="fas fa-users-slash"></i>
+                    </div>
+                    <h4>No Users Found</h4>
+                    <p>Try adjusting your search criteria or filters to find users.</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Custom Modal System -->
+        <div id="customModal" class="custom-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Confirmation</h3>
+                    <button class="modal-close" onclick="closeCustomModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="modalMessage">Are you sure you want to perform this action?</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn cancel-btn" onclick="closeCustomModal()">Cancel</button>
+                    <button class="modal-btn confirm-btn" id="modalConfirmBtn" onclick="confirmModalAction()">Confirm</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Alert Modal -->
+        <div id="alertModal" class="custom-modal">
+            <div class="modal-content alert-modal">
+                <div class="modal-header">
+                    <div class="alert-icon">
+                        <i id="alertIcon" class="fas fa-info-circle"></i>
+                    </div>
+                    <h3 id="alertTitle">Notification</h3>
+                </div>
+                <div class="modal-body">
+                    <p id="alertMessage">Operation completed successfully.</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn confirm-btn" onclick="closeAlertModal()">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/user-management.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    </script>
+</body>
+</html>

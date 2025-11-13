@@ -255,9 +255,6 @@
        }
     </style>
 <script>
- // Save bio to localStorage (simulating database) function saveBioToDatabase(bioText) { localStorage.setItem('userBio', bioText); }
-
-
 function enableEditing() {
     const container = document.querySelector('.bio-container');
     const display = document.getElementById('bioDisplay');
@@ -729,7 +726,7 @@ function startCountdownForCancelButton(itemCard, itemId) {
 </head> 
 <nav class="bg-[#069210] flex flex-col sm:flex-row justify-between items-center py-2 px-4 sm:px-10"> 
     <div class="flex items-center space-x-6 mb-2 sm:mb-0">
-        <a id="navHome" class="text-white pointer-events-none opacity-50 px-3 py-1 rounded-md font-semibold hover:bg-[#057a1a]" href="index.html">Home</a>
+        <a id="navHome" class="text-white pointer-events-none opacity-50 px-3 py-1 rounded-md font-semibold hover:bg-[#057a1a]" href="Login_page.html">Home</a>
         <a id="navPostItem" class="text-white pointer-events-none opacity-50 px-3 py-1 rounded-md font-semibold hover:bg-[#057a1a]" href="post_item.html">Post Item</a>
     </div>
     <img alt="Logo" class="h-16 w-35 my-2 sm:my-0" src="Homepage_images/LOGO_WHITE.png"/> 
@@ -1886,7 +1883,7 @@ window.markAsSent = async function markAsSent(itemId) {
         document.getElementById('userName').innerText = `${user.stud_fname} ${user.stud_lname}`;
         document.getElementById('userSchool').innerText = user.stud_school;
         document.getElementById('userAge').innerText = `Age: ${user.stud_age || ''}`;
-        document.getElementById('userYearLevel').innerText = `Year Level: ${user.stud_year_level || ''}`;
+        document.getElementById('userYearLevel').innerText = `Year Level: ${user.stud_year || ''}`;
         document.getElementById('userCourse').innerText = `Course: ${user.stud_course || ''}`;
         document.getElementById('userProgram').innerText = `Program: ${user.stud_program || ''}`;
         document.getElementById('bioDisplay').textContent = user.stud_bio || 'Place your Bio here...';

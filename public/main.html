@@ -16,6 +16,10 @@
             overflow-x: hidden; /* Hide horizontal scrollbar */
             overflow-y: auto; /* Enable vertical scrollbar */
         }
+        /* Hide the School From filter */
+        .search-filter-sidebar .mb-4:nth-of-type(4) {
+            display: none;
+        }
         html {
             overflow-x: hidden; /* Hide horizontal scrollbar */
             overflow-y: auto; /* Enable vertical scrollbar */
@@ -2275,19 +2279,18 @@ const ratingDisplay = `${starIcons} ${avgRatingDisplay} (${ratingObj.count})`;
                 <i class="fas fa-chevron-down"></i>
               </div>
             </div>
-      
-            <div class="mb-4">
+      <div class="mb-4">
             <label>School From</label>
              <div class="custom-select-wrapper">
                <div class="select-styled" id="school-filter-styled"></div>
-              <i class="fas fa-chevron-down"></i>
-               <select id="school-filter" class="hidden-select">
-                 <option value="">All Schools</option>
-                 <option value="Gordon College">Gordon College</option>
-                 <option value="Columban College">Columban College</option>
-               </select>
-             </div>
+             <i class="fas fa-chevron-down"></i>               <select id="school-filter" class="hidden-select">
+                <option value="">All Schools</option>
+                <option value="Gordon College">Gordon College</option>
+                <option value="Columban College">Columban College</option>
+              </select>
             </div>
+           </div>
+
 
               <script>
               // Persist and restore search input and filter selections including school filter

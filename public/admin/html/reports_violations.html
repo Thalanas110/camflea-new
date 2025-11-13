@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reports & Violations Center - CamFlea Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <!-- Admin Authentication Check - Must load before page content -->
+    <script src="js/admin-auth.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/reports-violations.css" />
+    <style>
+ 
+    </style>
+</head>
+<body>
+    <header>
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+            ☰
+        </button>
+        <div class="header-content">
+            <h1>Reports & Violations Center</h1>
+        </div>
+    </header>
+    
+    <div class="sidenav-overlay" id="sidenavOverlay"></div>
+    
+    <div class="layout-container">
+        <aside class="sidenav" id="sidenav">
+            <div class="sidenav-header">Navigation</div>
+            <nav class="admin-nav">
+                <a href="admin.html" class="nav-button">
+                    Admin Dashboard
+                </a>
+                <a href="user_management.html" class="nav-button">
+                    User Management
+                </a>
+                <a href="admin_post_item_management.html" class="nav-button">
+                    Post & Item Management
+                </a>
+                <a href="transaction_monitoring.html" class="nav-button">
+                    Transaction Monitoring
+                </a>
+                <a href="reports_violations.html" class="nav-button active">
+                    Reports & Violations Center
+                </a>
+                <button id="logoutBtn" class="nav-button logout-button">
+                    Log Out
+                </button>
+            </nav>
+        </aside>
+        
+        <main>
+            <div class="page-header">
+                <div class="header-info">
+                    <h2><i class="fas fa-shield-alt"></i> Reports & Violations Management</h2>
+                    <p class="header-subtitle">Monitor and resolve community reports efficiently</p>
+                </div>
+                <div class="stats-overview">
+                    <div class="stat-card pending">
+                        <div class="stat-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="pendingCount">0</span>
+                            <span class="stat-label">Pending Reports</span>
+                        </div>
+                    </div>
+                    <div class="stat-card resolved">
+                        <div class="stat-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-number" id="resolvedCount">0</span>
+                            <span class="stat-label">Resolved Cases</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content">
+                <div class="section-header urgent">
+                    <div class="section-info">
+                        <h3 class="section-title">
+                            <i class="fas fa-clock"></i>
+                            Unresolved Reports
+                        </h3>
+                        <div class="priority-badge high">
+                            <i class="fas fa-fire"></i>
+                            High Priority
+                        </div>
+                    </div>
+                    <div class="section-actions">
+                        <button id="exportUnresolvedPdfBtn" class="export-btn">
+                            <i class="fas fa-file-pdf"></i>
+                            Export PDF
+                        </button>
+                    </div>
+                </div>
+                <div class="enhanced-table-wrapper">
+                    <div class="table-container">
+                        <table id="reportsTable" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-hashtag"></i> Report ID</th>
+                                    <th><i class="fas fa-user"></i> Reporter User</th>
+                                    <th><i class="fas fa-user-times"></i> Reported User</th>
+                                    <th><i class="fas fa-tags"></i> Violation Type</th>
+                                    <th><i class="fas fa-info-circle"></i> Violation Details</th>
+                                    <th><i class="fas fa-images"></i> Photo URLs</th>
+                                    <th><i class="fas fa-calendar"></i> Created At</th>
+                                    <th><i class="fas fa-cog"></i> Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Reports will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="noResults" class="empty-state" style="display:none;">
+                    <div class="empty-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h4>No Unresolved Reports</h4>
+                    <p>All reports have been processed. Great work!</p>
+                </div>
+            </div>
+
+            <div class="content">
+                <div class="section-header resolved">
+                    <div class="section-info">
+                        <h3 class="section-title">
+                            <i class="fas fa-check-double"></i>
+                            Resolved Reports
+                        </h3>
+                        <div class="priority-badge success">
+                            <i class="fas fa-thumbs-up"></i>
+                            Completed
+                        </div>
+                    </div>
+                    <div class="section-actions">
+                        <button id="exportResolvedPdfBtn" class="export-btn">
+                            <i class="fas fa-file-pdf"></i>
+                            Export PDF
+                        </button>
+                    </div>
+                </div>
+                <div class="enhanced-table-wrapper">
+                    <div class="table-container">
+                        <table id="resolvedReportsTable" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-hashtag"></i> Report ID</th>
+                                    <th><i class="fas fa-user"></i> Reporter User</th>
+                                    <th><i class="fas fa-user-times"></i> Reported User</th>
+                                    <th><i class="fas fa-tags"></i> Violation Type</th>
+                                    <th><i class="fas fa-info-circle"></i> Violation Details</th>
+                                    <th><i class="fas fa-images"></i> Photo URLs</th>
+                                    <th><i class="fas fa-calendar"></i> Created At</th>
+                                    <th><i class="fas fa-cog"></i> Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Resolved reports will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="noResolvedResults" class="empty-state" style="display:none;">
+                    <div class="empty-icon">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <h4>No Resolved Reports</h4>
+                    <p>Resolved reports will appear here once you start processing cases.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/reports-violations.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+</body>
+</html>

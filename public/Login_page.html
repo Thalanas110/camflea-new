@@ -271,7 +271,8 @@
     }
 
     // Check user role for ban/restriction
-    if (user.is_role === 2) { // Banned
+
+    else if (user.is_role === 2) { // Banned
         errorMessage.innerHTML = "You are currently banned from using the app. Please contact support.";
         errorMessage.style.display = "block";
         return; // Prevent login
@@ -333,9 +334,13 @@
     }
 
     // Small delay to ensure loading screen appears before redirect
-    setTimeout(() => {
-        window.location.href = "main.html";
-    }, 300);
+setTimeout(() => {
+        if (user.is_role === 1) {
+            window.location.href = "admin.html";
+        } else {
+            window.location.href = "index.html";
+        }
+    }, 1500); // Adjust delay if needed
 };
 
     </script>

@@ -212,6 +212,10 @@
         />
         <div class="ml-0 mt-2">
             <h2 id="userName" class="text-xl font-semibold">User Name</h2>
+            <p id="userAge" class="text-sm text-gray-600">Age: </p>
+            <p id="userYearLevel" class="text-sm text-gray-600">Year Level: </p>
+            <p id="userCourse" class="text-sm text-gray-600">Course: </p>
+            <p id="userProgram" class="text-sm text-gray-600">Program: </p>
             <p id="userSchool" style="display: flex; align-items: center; gap: 6px;">School Name</p>
             <div class="flex items-center space-x-2 mt-1">
                 <i class="fas fa-star text-yellow-500"></i>
@@ -308,7 +312,7 @@
     async function fetchProfile(studId) {
         const { data: user, error } = await supabase
             .from('student')
-            .select('stud_fname, stud_lname, stud_school, stud_bio, stud_picture')
+            .select('stud_fname, stud_lname, stud_school, stud_bio, stud_picture, stud_age, stud_course, stud_program, stud_year')
             .eq('stud_id', studId)
             .single();
 
@@ -317,6 +321,10 @@
             document.getElementById('userSchool').innerText = "";
             document.getElementById('bioDisplay').textContent = "";
             document.getElementById('profilePicture').src = "Homepage_images/circle-user.png";
+            document.getElementById('userAge').innerText = "Age: ";
+            document.getElementById('userYearLevel').innerText = "Year Level: ";
+            document.getElementById('userCourse').innerText = "Course: ";
+            document.getElementById('userProgram').innerText = "Program: ";
             return;
         }
 
@@ -327,6 +335,12 @@
         // Display the profile picture
         const profilePicture = document.getElementById('profilePicture');
         profilePicture.src = user.stud_picture || 'Homepage_images/circle-user.png';
+
+        // Display additional fields
+        document.getElementById('userAge').innerText = `Age: ${user.stud_age || ''}`;
+        document.getElementById('userYearLevel').innerText = `Year Level: ${user.stud_year || ''}`;
+        document.getElementById('userCourse').innerText = `Course: ${user.stud_course || ''}`;
+        document.getElementById('userProgram').innerText = `Program: ${user.stud_program || ''}`;
 
         // Append school logo after setting school name
         const userSchoolElem = document.getElementById('userSchool');
@@ -910,22 +924,7 @@ if (messageModalCloseBtn) {
   });
 </script>
 
-  <!-- Modal for Detailed Post -->
-  <div id="detailedPostModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background-color: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center;">
-    <div style="position: relative; width: 90%; max-width: 900px; height: 90%; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; flex-direction: column;">
-      <button id="closeDetailedPostModal" style="position: absolute; top: 10px; right: 10px; background: #069210; color: white; border: none; border-radius: 5px; padding: 8px 12px; font-size: 16px; cursor: pointer; z-index: 2100;">Close</button>
-      <iframe id="detailedPostIframe" src="" style="flex-grow: 1; border: none; border-radius: 0 0 10px 10px;"></iframe>
-    </div>
-  </div>
 
-  <script>
-    document.getElementById('closeDetailedPostModal').addEventListener('click', () => {
-      const modal = document.getElementById('detailedPostModal');
-      const iframe = document.getElementById('detailedPostIframe');
-      iframe.src = '';
-      modal.style.display = 'none';
-    });
-  </script>
 
 </body>
 </html>
